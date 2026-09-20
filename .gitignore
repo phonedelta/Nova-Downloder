@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-extension
+.env
+extension/.env
+.playwright
+.tools
+.rollback
+*.pem
+*.crx
+.DS_Store

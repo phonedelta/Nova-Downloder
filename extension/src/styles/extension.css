@@ -1,0 +1,968 @@
+:host {
+  all: initial;
+  font-family:
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.nova-root {
+  --nova-primary: #b6ff2f;
+  --nova-primary-hover: #a6eb25;
+  --nova-ink: #23262f;
+  --nova-light-bg: #f7f8f3;
+  --nova-dark-bg: #17191f;
+  --nova-white: #ffffff;
+  --nova-border-light: #e4e6e1;
+  --nova-muted: #6b6f78;
+  --nova-radius: 16px;
+  --nova-z-panel: 10000;
+  --nova-surface: var(--nova-white);
+  --nova-text: var(--nova-ink);
+  --nova-card: #f4f5f0;
+  --nova-border: var(--nova-border-light);
+  --nova-shadow: 0 12px 40px #23262f18;
+  color: var(--nova-text);
+  font-size: 14px;
+  line-height: 1.45;
+  pointer-events: none;
+  position: relative;
+  overflow: visible;
+}
+
+.nova-root .nova-btn,
+.nova-root .nova-btn-wrap,
+.nova-root .nova-btn-dismiss,
+.nova-root .nova-panel,
+.nova-root .nova-panel * {
+  pointer-events: auto;
+}
+
+.nova-root[data-theme="dark"] {
+  --nova-surface: #23262f;
+  --nova-text: #ffffff;
+  --nova-card: #17191f;
+  --nova-border: #383c46;
+  --nova-muted: #a8abb3;
+  --nova-shadow: 0 12px 40px #00000040;
+}
+
+.nova-root[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+.nova-btn-wrap {
+  position: relative;
+  display: inline-flex;
+  pointer-events: auto;
+}
+
+.nova-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 13px;
+  background: var(--nova-primary);
+  color: var(--nova-ink);
+  font-weight: 650;
+  font-size: 13px;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 4px 14px #00000033, 0 0 0 1px #23262f14;
+  backdrop-filter: blur(6px);
+  opacity: 0.92;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease,
+    opacity 0.18s ease,
+    box-shadow 0.18s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.nova-btn-dismiss {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: #23262f;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.85);
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+  box-shadow: 0 2px 8px #00000055;
+}
+
+.nova-root[dir="rtl"] .nova-btn-dismiss {
+  right: auto;
+  left: -6px;
+}
+
+.nova-btn-wrap:hover .nova-btn-dismiss,
+.nova-btn-wrap:focus-within .nova-btn-dismiss {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.nova-btn-dismiss:hover {
+  background: #ff5a5a;
+  color: #fff;
+}
+
+.nova-btn:hover {
+  background: var(--nova-primary-hover);
+  transform: translateY(-1px);
+  opacity: 1;
+  box-shadow: 0 6px 18px #00000040, 0 0 0 1px #23262f22;
+}
+
+.nova-root:hover .nova-btn,
+.nova-btn:focus-visible {
+  opacity: 1;
+}
+
+.nova-btn:focus-visible {
+  outline: 3px solid var(--nova-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--nova-ink);
+}
+
+.nova-btn--compact {
+  width: 38px;
+  padding: 0;
+}
+
+.nova-btn--compact .nova-btn-label-full,
+.nova-btn--compact .nova-btn-label-short {
+  display: none;
+}
+
+.nova-btn-label-short {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .nova-btn-label-full {
+    display: none;
+  }
+  .nova-btn-label-short {
+    display: inline;
+  }
+  .nova-btn--compact .nova-btn-label-short {
+    display: none;
+  }
+}
+
+.nova-host-inline {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: 8px;
+  vertical-align: middle;
+  position: relative;
+  z-index: 3;
+}
+
+.nova-host-shorts {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0;
+  position: relative;
+  z-index: 3;
+}
+
+.nova-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  inset-inline-end: 0;
+  inset-inline-start: auto;
+  width: min(460px, calc(100vw - 24px));
+  max-height: min(70vh, 560px);
+  display: flex;
+  flex-direction: column;
+  background: var(--nova-surface);
+  color: var(--nova-text);
+  border: 1px solid var(--nova-border);
+  border-radius: var(--nova-radius);
+  box-shadow: var(--nova-shadow);
+  z-index: var(--nova-z-panel);
+  overflow: hidden;
+  pointer-events: auto;
+  animation: nova-panel-in 0.18s ease;
+}
+
+/* Escapes YouTube player clipping — same visual spot via JS top/right. */
+.nova-panel.nova-panel--portal {
+  position: fixed;
+  top: var(--nova-panel-top, 72px);
+  right: var(--nova-panel-right, 16px);
+  left: auto;
+  inset-inline-end: var(--nova-panel-right, 16px);
+  inset-inline-start: auto;
+  max-height: var(--nova-panel-max-height, min(70vh, 560px));
+  z-index: 2147483647;
+}
+
+.nova-root[data-shorts="true"] .nova-panel {
+  position: fixed;
+  top: 72px;
+  right: 12px;
+  left: auto;
+  transform: none;
+  inset-inline-start: auto;
+  width: min(400px, calc(100vw - 24px));
+  max-height: min(70vh, 560px);
+  animation: nova-panel-in 0.18s ease;
+}
+
+.nova-root[data-shorts="true"] .nova-panel.nova-panel--portal {
+  top: var(--nova-panel-top, 72px);
+  right: var(--nova-panel-right, 12px);
+  inset-inline-end: var(--nova-panel-right, 12px);
+  max-height: var(--nova-panel-max-height, min(70vh, 560px));
+}
+
+@keyframes nova-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nova-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--nova-border);
+  flex-shrink: 0;
+}
+
+.nova-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--nova-primary);
+  color: var(--nova-ink);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.nova-panel-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.nova-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--nova-muted);
+  cursor: pointer;
+}
+
+.nova-icon-btn:hover {
+  background: var(--nova-card);
+  color: var(--nova-text);
+}
+
+.nova-icon-btn:focus-visible {
+  outline: 2px solid var(--nova-primary);
+}
+
+.nova-preview {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--nova-border);
+  flex-shrink: 0;
+}
+
+.nova-thumb {
+  width: 96px;
+  height: 54px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--nova-card);
+  flex-shrink: 0;
+}
+
+.nova-preview-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.nova-preview-meta h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.nova-preview-meta p {
+  margin: 0;
+  color: var(--nova-muted);
+  font-size: 12px;
+}
+
+.nova-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--nova-border);
+  flex-shrink: 0;
+}
+
+.nova-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--nova-muted);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nova-tab[aria-selected="true"] {
+  background: var(--nova-primary);
+  color: var(--nova-ink);
+}
+
+.nova-tab:focus-visible {
+  outline: 2px solid var(--nova-primary);
+}
+
+.nova-body {
+  overflow-y: auto;
+  padding: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.nova-format {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: var(--nova-card);
+  border: 1px solid var(--nova-border);
+  border-radius: 14px;
+}
+
+.nova-format-info strong {
+  display: block;
+  font-size: 14px;
+}
+
+.nova-format-info span {
+  color: var(--nova-muted);
+  font-size: 12px;
+}
+
+.nova-format-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--nova-muted);
+  font-size: 12px;
+}
+
+.nova-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  min-width: 120px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--nova-primary);
+  color: var(--nova-ink);
+  font-weight: 650;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.nova-action:hover:not(:disabled) {
+  background: var(--nova-primary-hover);
+  transform: translateY(-1px);
+}
+
+.nova-action:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.nova-action:focus-visible {
+  outline: 2px solid var(--nova-primary);
+  outline-offset: 2px;
+}
+
+.nova-action--full {
+  width: 100%;
+}
+
+.nova-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.nova-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nova-muted);
+}
+
+.nova-field select {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--nova-border);
+  background: var(--nova-card);
+  color: var(--nova-text);
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.nova-field select:focus-visible {
+  outline: 2px solid var(--nova-primary);
+}
+
+.nova-hint {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  color: var(--nova-muted);
+  font-size: 12px;
+  margin: 8px 0 12px;
+}
+
+.nova-footer {
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--nova-border);
+  flex-shrink: 0;
+}
+
+.nova-external {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--nova-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.nova-external:hover {
+  color: var(--nova-text);
+}
+
+.nova-legal {
+  margin-top: 8px;
+  color: var(--nova-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.nova-error,
+.nova-loading {
+  padding: 8px 4px 16px;
+}
+
+.nova-error h3,
+.nova-loading h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.nova-error p {
+  margin: 0 0 14px;
+  color: var(--nova-muted);
+}
+
+.nova-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--nova-card),
+    var(--nova-border),
+    var(--nova-card)
+  );
+  background-size: 200% 100%;
+  animation: nova-shimmer 1.2s ease infinite;
+  border-radius: 10px;
+}
+
+.nova-skeleton-thumb {
+  width: 96px;
+  height: 54px;
+}
+
+.nova-skeleton-line {
+  height: 12px;
+  margin-bottom: 8px;
+}
+
+.nova-skeleton-row {
+  height: 64px;
+  margin-bottom: 8px;
+}
+
+@keyframes nova-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.nova-spin {
+  animation: nova-spin 0.8s linear infinite;
+}
+
+@keyframes nova-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.nova-btn {
+  position: relative;
+}
+
+.nova-btn-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--nova-ink);
+  color: var(--nova-primary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--nova-primary);
+}
+
+.nova-toast {
+  margin: 0;
+  padding: 8px 16px;
+  background: #23262f;
+  color: #b6ff2f;
+  font-size: 12px;
+  line-height: 1.35;
+  border-bottom: 1px solid var(--nova-border);
+}
+
+.nova-dl-entry {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-bottom: 1px solid var(--nova-border);
+  background: var(--nova-surface);
+  color: var(--nova-text);
+  font: inherit;
+  font-weight: 650;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.nova-dl-entry:hover {
+  background: var(--nova-card);
+}
+
+.nova-dl-entry-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nova-dl-entry-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #b6ff2f;
+  color: #23262f;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.nova-dl-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nova-dl-screen-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--nova-border);
+  flex-shrink: 0;
+}
+
+.nova-dl-screen-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.nova-dl-filters {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 0;
+  flex-shrink: 0;
+}
+
+.nova-dl-filter {
+  flex: 1;
+  height: 32px;
+  border: 1px solid var(--nova-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--nova-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.nova-dl-filter[aria-selected="true"] {
+  background: #b6ff2f;
+  border-color: #b6ff2f;
+  color: #23262f;
+}
+
+.nova-dl-screen-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.nova-dl-screen-hint {
+  margin: 0;
+  padding: 0 12px 12px;
+  flex-shrink: 0;
+}
+
+.nova-dl-card {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #23262f;
+  color: #fff;
+  border-radius: 12px;
+}
+
+.nova-root[data-theme="light"] .nova-dl-card {
+  background: #23262f;
+}
+
+.nova-dl-card-top {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 8px;
+}
+
+.nova-dl-thumb {
+  width: 48px;
+  height: 27px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #17191f;
+}
+
+.nova-dl-thumb--empty {
+  display: block;
+}
+
+.nova-dl-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 650;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.nova-dl-meta {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #a8abb3;
+}
+
+.nova-dl-pct {
+  font-size: 14px;
+  font-weight: 700;
+  color: #b6ff2f;
+}
+
+.nova-progress {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: #383c46;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.nova-progress-value {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: #b6ff2f;
+  transition: width 250ms linear;
+}
+
+.nova-progress--indeterminate .nova-progress-value {
+  width: 35%;
+  animation: nova-progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes nova-progress-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.nova-dl-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 11px;
+  color: #a8abb3;
+  margin-bottom: 6px;
+}
+
+.nova-dl-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nova-dl-status {
+  font-size: 11px;
+  color: #b6ff2f;
+}
+
+.nova-dl-status--error {
+  color: #ff8f8f;
+}
+
+.nova-dl-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: #b6ff2f;
+  color: #23262f;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.nova-dl-retry:hover {
+  background: #a6eb25;
+}
+
+.nova-dl-actions {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.nova-dl-ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(182, 255, 47, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  color: #e8eaed;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nova-dl-ctrl-btn:hover {
+  background: rgba(182, 255, 47, 0.12);
+  border-color: #b6ff2f;
+  color: #b6ff2f;
+}
+
+.nova-dl-ctrl-btn--danger {
+  border-color: rgba(255, 143, 143, 0.4);
+}
+
+.nova-dl-ctrl-btn--danger:hover {
+  background: rgba(255, 143, 143, 0.12);
+  border-color: #ff8f8f;
+  color: #ff8f8f;
+}
+
+.nova-dl-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: #383c46;
+  color: #fff;
+  cursor: pointer;
+}
+
+.nova-dl-icon-btn:hover {
+  background: #4a4f5a;
+}
+
+.nova-dl-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--nova-muted);
+  line-height: 1.35;
+}
+
+.nova-dl-estimate {
+  margin: 0 0 6px;
+  font-size: 11px;
+  color: #a8abb3;
+}
+
+.nova-dl-status--done {
+  color: #b6ff2f;
+}
+
+.nova-dl-menu {
+  position: absolute;
+  inset-inline-end: 0;
+  bottom: calc(100% + 4px);
+  z-index: 5;
+  min-width: 180px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #2c303a;
+  border: 1px solid #3e4450;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nova-dl-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: start;
+}
+
+.nova-dl-menu button:hover {
+  background: #3a4050;
+}
+
+@media (max-width: 520px) {
+  .nova-panel {
+    width: calc(100vw - 16px);
+  }
+  .nova-btn-label-full {
+    display: none;
+  }
+  .nova-btn-label-short {
+    display: inline;
+  }
+}
