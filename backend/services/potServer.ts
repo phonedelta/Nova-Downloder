@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, openSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const baseUrl = () =>
@@ -24,6 +24,15 @@ export function isPotServerReachable(timeoutMs = 1200): Promise<boolean> {
   return ping(timeoutMs);
 }
 
+export function potLogTail(max = 2000): string {
+  try {
+    const text = readFileSync("/tmp/nova-pot.log", "utf8");
+    return text.slice(-max);
+  } catch {
+    return "";
+  }
+}
+
 function potMainJs(): string | null {
   const candidates = [
     "/opt/bgutil-ytdlp-pot-provider/server/build/main.js",
@@ -39,7 +48,6 @@ function potMainJs(): string | null {
 function potNodeBinary(mainJs: string): string {
   const configured = process.env.YT_DLP_POT_NODE?.trim();
   if (configured && existsSync(configured)) return configured;
-  // Prefer bundled Node next to /opt pot server (matches canvas ABI)
   if (mainJs.startsWith("/opt/")) {
     const bundled = "/opt/bgutil-node/bin/node";
     if (existsSync(bundled)) return bundled;
@@ -50,6 +58,7 @@ function potNodeBinary(mainJs: string): string {
 /**
  * Ensure bgutil PO Token HTTP server is reachable.
  * Without it, YouTube often returns only progressive 360p for many videos.
+ * On Docker/Railway, scripts/docker-start.sh usually starts it first.
  */
 export async function ensurePotServer(): Promise<boolean> {
   if (process.env.YT_DLP_POT_DISABLE === "1") return false;
@@ -68,21 +77,32 @@ export async function ensurePotServer(): Promise<boolean> {
 
   const nodeBin = potNodeBinary(mainJs);
   console.log("[pot] Starting PO Token server…", { mainJs, nodeBin });
-  const child = spawn(nodeBin, [mainJs, "--host", "127.0.0.1"], {
-    cwd: dirname(mainJs),
-    detached: true,
-    stdio: "ignore",
-    env: {
-      ...process.env,
-      // Ensure dynamic linker finds libs from the bundled Node image
-      LD_LIBRARY_PATH: [
-        "/opt/bgutil-node/lib",
-        process.env.LD_LIBRARY_PATH || "",
-      ]
-        .filter(Boolean)
-        .join(":"),
+  let stdio: "ignore" | [ "ignore", number, number ] = "ignore";
+  try {
+    const fd = openSync("/tmp/nova-pot.log", "a");
+    stdio = ["ignore", fd, fd];
+  } catch {
+    /* keep ignore */
+  }
+
+  const child = spawn(
+    nodeBin,
+    [mainJs, "--host", "127.0.0.1", "--port", "4416"],
+    {
+      cwd: dirname(mainJs),
+      detached: true,
+      stdio,
+      env: {
+        ...process.env,
+        LD_LIBRARY_PATH: [
+          "/opt/bgutil-node/lib",
+          process.env.LD_LIBRARY_PATH || "",
+        ]
+          .filter(Boolean)
+          .join(":"),
+      },
     },
-  });
+  );
   child.on("error", (err) => {
     console.warn("[pot] Failed to spawn PO Token server:", err.message);
   });
@@ -96,8 +116,10 @@ export async function ensurePotServer(): Promise<boolean> {
     }
   }
 
+  const tail = potLogTail(800);
   console.warn(
     "[pot] Could not reach PO Token server — multi-quality may be limited",
+    tail ? `\n${tail}` : "",
   );
   return false;
 }

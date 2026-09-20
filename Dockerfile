@@ -1,5 +1,5 @@
 # NovaDownloader — production image for Railway / Docker
-# Use official bgutil image (prebuilt) so HD YouTube formats work without compiling canvas.
+# Ship official bgutil POT server (prebuilt) so YouTube HD works on datacenter IPs.
 
 FROM brainicism/bgutil-ytdlp-pot-provider:2.0.0 AS pot
 
@@ -22,10 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       "bgutil-ytdlp-pot-provider==2.0.0" \
   && rm -rf /var/lib/apt/lists/*
 
-# POT HTTP server + matching Node runtime (native canvas bindings)
+# POT HTTP server + matching Node runtime (canvas native bindings)
 COPY --from=pot /app /opt/bgutil-ytdlp-pot-provider/server
-COPY --from=pot /usr/local/bin/node /opt/bgutil-node/bin/node
-COPY --from=pot /usr/local/lib /opt/bgutil-node/lib
+COPY --from=pot /usr/local /opt/bgutil-node
 
 WORKDIR /app
 
@@ -36,6 +35,9 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
+COPY scripts/docker-start.sh /usr/local/bin/nova-start
+RUN chmod +x /usr/local/bin/nova-start
+
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV YT_DLP_PATH=yt-dlp
@@ -44,7 +46,6 @@ ENV YT_DLP_POT_BASE_URL=http://127.0.0.1:4416
 ENV YT_DLP_POT_NODE=/opt/bgutil-node/bin/node
 ENV YT_DLP_EXTRACTOR_ARGS=youtube:player_client=web,mweb,tv
 ENV YT_DLP_DOWNLOAD_EXTRACTOR_ARGS=youtube:player_client=web,mweb,tv
-# Railway injects PORT
 
 EXPOSE 3001
-CMD ["npm", "start"]
+CMD ["nova-start"]
