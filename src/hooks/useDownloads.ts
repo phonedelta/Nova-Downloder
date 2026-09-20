@@ -165,6 +165,15 @@ export function useDownloads() {
       setPreparing(false);
     }
   }
+  function clear() {
+    setRecent([]);
+    try {
+      localStorage.removeItem("nova-history");
+    } catch {
+      /* */
+    }
+  }
+
   return {
     // Keep `busy` for prepare feedback only — does not block other starts
     busy: preparing,
@@ -173,5 +182,6 @@ export function useDownloads() {
     recent,
     active,
     download,
+    clear,
   };
 }
