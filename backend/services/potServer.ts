@@ -21,17 +21,25 @@ async function ping(timeoutMs = 1500): Promise<boolean> {
 
 function potMainJs(): string | null {
   const candidates = [
-    join(process.cwd(), ".tools/bgutil-ytdlp-pot-provider/server/build/main.js"),
     "/opt/bgutil-ytdlp-pot-provider/server/build/main.js",
-    join(
-      process.cwd(),
-      "bgutil-ytdlp-pot-provider/server/build/main.js",
-    ),
+    join(process.cwd(), ".tools/bgutil-ytdlp-pot-provider/server/build/main.js"),
+    join(process.cwd(), "bgutil-ytdlp-pot-provider/server/build/main.js"),
   ];
   for (const path of candidates) {
     if (existsSync(path)) return path;
   }
   return null;
+}
+
+function potNodeBinary(mainJs: string): string {
+  const configured = process.env.YT_DLP_POT_NODE?.trim();
+  if (configured && existsSync(configured)) return configured;
+  // Prefer bundled Node next to /opt pot server (matches canvas ABI)
+  if (mainJs.startsWith("/opt/")) {
+    const bundled = "/opt/bgutil-node/bin/node";
+    if (existsSync(bundled)) return bundled;
+  }
+  return process.execPath;
 }
 
 /**
@@ -53,17 +61,30 @@ export async function ensurePotServer(): Promise<boolean> {
     return false;
   }
 
-  console.log("[pot] Starting PO Token server…", mainJs);
-  const child = spawn(process.execPath, [mainJs], {
+  const nodeBin = potNodeBinary(mainJs);
+  console.log("[pot] Starting PO Token server…", { mainJs, nodeBin });
+  const child = spawn(nodeBin, [mainJs, "--host", "127.0.0.1"], {
     cwd: dirname(mainJs),
     detached: true,
     stdio: "ignore",
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      // Ensure dynamic linker finds libs from the bundled Node image
+      LD_LIBRARY_PATH: [
+        "/opt/bgutil-node/lib",
+        process.env.LD_LIBRARY_PATH || "",
+      ]
+        .filter(Boolean)
+        .join(":"),
+    },
+  });
+  child.on("error", (err) => {
+    console.warn("[pot] Failed to spawn PO Token server:", err.message);
   });
   child.unref();
 
-  for (let i = 0; i < 40; i++) {
-    await new Promise((r) => setTimeout(r, 250));
+  for (let i = 0; i < 50; i++) {
+    await new Promise((r) => setTimeout(r, 300));
     if (await ping()) {
       console.log("[pot] PO Token server ready on", baseUrl());
       return true;

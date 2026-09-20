@@ -26,6 +26,8 @@ import { translateSrt } from "../backend/services/translation.service";
 import { jobs, cleanupJob } from "../backend/services/download.service";
 
 const app = express();
+// Railway / reverse proxies set X-Forwarded-For — required for express-rate-limit
+app.set("trust proxy", 1);
 app.use(
   helmet({
     contentSecurityPolicy: false,
