@@ -194,13 +194,11 @@ app.post("/api/admin/probe-youtube", express.json({ limit: "32kb" }), async (q, 
       180000,
     );
     const data = JSON.parse(raw);
-    const heights = [
-      ...new Set(
-        (data.formats || [])
-          .map((f: { height?: number }) => f.height)
-          .filter((h: number | undefined): h is number => typeof h === "number"),
-      ),
-    ].sort((a, b) => b - a);
+    const heightSet = new Set<number>();
+    for (const f of data.formats || []) {
+      if (typeof f?.height === "number") heightSet.add(f.height);
+    }
+    const heights = [...heightSet].sort((a, b) => b - a);
     r.json({
       ok: true,
       title: data.title,
