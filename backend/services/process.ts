@@ -227,17 +227,35 @@ export function publicError(e: unknown) {
   if (/ENOENT/.test(s))
     return "Le moteur de téléchargement est indisponible. Veuillez réessayer plus tard.";
   if (/private/i.test(s)) return "Cette vidéo est privée.";
-  if (/confirm.*(you.?re|you are).*not a bot|cookies-from-browser|pass cookies/i.test(s))
-    return "YouTube bloque temporairement l’accès (vérification anti-bot). Sur Railway, exportez vos cookies YouTube et définissez la variable YT_DLP_COOKIES_BASE64 (voir README).";
+  if (
+    /confirm.*(you.?re|you are).*not a bot|cookies-from-browser|pass cookies|bot.detection|please.?sign.?in/i.test(
+      s,
+    )
+  )
+    return "YouTube bloque temporairement l’accès (vérification anti-bot). Sur Railway, définissez YT_DLP_COOKIES_BASE64 (script: ./scripts/export-youtube-cookies.sh brave).";
   if (/age.?restrict|sign in to confirm your age|login required/i.test(s))
     return "Cette vidéo présente une restriction d’âge ou nécessite une connexion.";
   if (/sign in/i.test(s))
     return "Cette vidéo nécessite une authentification ou présente une restriction d’accès.";
   if (/country|geo/i.test(s))
     return "Cette vidéo n’est pas disponible dans la région du serveur.";
-  if (/removed|unavailable|not available/i.test(s))
+  if (/removed|unavailable|not available|The page needs to be reloaded/i.test(s))
     return "Cette vidéo a été supprimée ou n’est plus disponible.";
-  if (/TIMEOUT/.test(s))
+  if (/TIMEOUT|PROCESS_TIMEOUT/i.test(s))
     return "Le traitement a pris trop de temps. Veuillez réessayer.";
+  if (/HTTP Error 403|403: Forbidden| SabR|sabr/i.test(s))
+    return "YouTube a refusé l’accès (403). Ajoutez YT_DLP_COOKIES_BASE64 sur Railway puis redéployez.";
+  if (/n challenge|JS challenge|EJS|Challenge solving failed/i.test(s))
+    return "Échec du défi JavaScript YouTube. Vérifiez que Node.js et yt-dlp sont à jour sur le serveur.";
+  if (/Failed to extract|Unable to download webpage|Unable to extract/i.test(s))
+    return "YouTube a bloqué l’extraction. Définissez YT_DLP_COOKIES_BASE64 sur Railway.";
+  // Surface a short yt-dlp hint when nothing matched (helps diagnose Railway)
+  const tail = s
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(-220);
+  if (tail && tail.length > 40 && !/^Error:/.test(tail)) {
+    return `Impossible de traiter cette vidéo pour le moment. (${tail})`;
+  }
   return "Impossible de traiter cette vidéo pour le moment. Veuillez réessayer.";
 }

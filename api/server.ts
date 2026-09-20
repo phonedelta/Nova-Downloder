@@ -21,8 +21,9 @@ import {
 } from "../backend/services/genericMedia.service";
 import { publicError } from "../backend/services/process";
 import { ensurePotServer } from "../backend/services/potServer";
-import { resolveCookiesFile } from "../backend/services/youtubeCookies";
+import { resolveCookiesFile, installCookiesFromBase64 } from "../backend/services/youtubeCookies";
 import { youtubeUrl } from "../src/utils/format";
+import { clearAnalysisCache } from "../backend/services/videoAnalyzer.service";
 import { translateSrt } from "../backend/services/translation.service";
 import { jobs, cleanupJob } from "../backend/services/download.service";
 
@@ -140,8 +141,34 @@ app.get("/api/health", (_q, r) =>
     service: "NovaDownloader",
     timestamp: new Date().toISOString(),
     translationAvailable: !!process.env.TRANSLATE_URL,
+    youtubeCookies: !!resolveCookiesFile(),
+    potConfigured: process.env.YT_DLP_POT_DISABLE !== "1",
   }),
 );
+
+/** Install YouTube cookies at runtime (Bearer = DOWNLOAD_SIGNING_SECRET). */
+app.post("/api/admin/youtube-cookies", express.json({ limit: "2mb" }), (q, r) => {
+  const secret = process.env.DOWNLOAD_SIGNING_SECRET?.trim();
+  const auth = String(q.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  if (!secret || auth !== secret) {
+    r.status(401).json({ error: "Non autorisé." });
+    return;
+  }
+  const payload = String(q.body?.base64 || q.body?.cookies || "").trim();
+  if (!payload) {
+    r.status(400).json({ error: "Champ base64 manquant." });
+    return;
+  }
+  const path = installCookiesFromBase64(payload);
+  clearAnalysisCache();
+  if (!path) {
+    r.status(400).json({
+      error: "Cookies invalides (attendu: Netscape cookies.txt en base64, gzip OK).",
+    });
+    return;
+  }
+  r.json({ ok: true, youtubeCookies: true });
+});
 
 app.post("/api/analyze", heavy, async (q, r) => {
   if (!youtubeUrl(q.body.url)) {
