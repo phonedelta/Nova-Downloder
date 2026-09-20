@@ -8,6 +8,16 @@ import { youtubeUrl } from "../../src/utils/format";
 import type { Analysis } from "../../src/types";
 const cache = new Map<string, { data: Analysis; expires: number }>();
 
+const BOT_RE =
+  /confirm.*(you.?re|you are).*not a bot|Sign in to confirm|cookies-from-browser|pass cookies/i;
+
+/** Clients that sometimes work on datacenter IPs without cookies. */
+const FALLBACK_CLIENTS = [
+  "android_vr,tv_embedded,tv,web_embedded",
+  "tv,android_vr,ios,android",
+  "web,mweb,tv,android_vr",
+];
+
 export function clearAnalysisCache() {
   cache.clear();
 }
@@ -18,7 +28,7 @@ export async function analyze(input: string): Promise<Analysis> {
   const hit = cache.get(url);
   if (hit && hit.expires > Date.now()) return hit.data;
 
-  const raw = await dumpJson(url);
+  const raw = await dumpJsonWithFallbacks(url);
   const data = buildAnalysis(raw, url);
 
   // If only progressive low-res came back, retry with web/mweb (needs POT).
@@ -44,16 +54,45 @@ export async function analyze(input: string): Promise<Analysis> {
   return data;
 }
 
+async function dumpJsonWithFallbacks(url: string) {
+  try {
+    return await dumpJson(url);
+  } catch (first) {
+    const msg = String(first);
+    if (!BOT_RE.test(msg)) throw first;
+
+    console.warn(
+      "[analyze] YouTube bot check — retrying with guest player clients…",
+    );
+    let last: unknown = first;
+    for (const clients of FALLBACK_CLIENTS) {
+      try {
+        return await dumpJson(url, [
+          "--extractor-args",
+          `youtube:player_client=${clients}`,
+        ]);
+      } catch (e) {
+        last = e;
+        if (!BOT_RE.test(String(e))) throw e;
+      }
+    }
+    throw last;
+  }
+}
+
 async function dumpJson(url: string, extraArgs: string[] = []) {
   const base = common();
-  // Replace extractor-args if caller provides them
+  // Replace youtube: extractor-args if caller provides them; keep POT args
   let args = [...base];
   if (extraArgs.includes("--extractor-args")) {
     const drop = new Set<number>();
     for (let i = 0; i < args.length; i++) {
       if (args[i] === "--extractor-args") {
-        drop.add(i);
-        drop.add(i + 1);
+        const value = args[i + 1] || "";
+        if (value.startsWith("youtube:")) {
+          drop.add(i);
+          drop.add(i + 1);
+        }
       }
     }
     args = args.filter((_, i) => !drop.has(i));
@@ -75,11 +114,12 @@ async function dumpJson(url: string, extraArgs: string[] = []) {
       /could not (copy|find)|failed to (load|decrypt)|Unable to find|Permission denied|database is locked|No such file/i.test(
         msg,
       ) &&
-      process.env.YT_DLP_COOKIES_FROM_BROWSER
+      (process.env.YT_DLP_COOKIES_FROM_BROWSER ||
+        process.env.YT_DLP_COOKIES ||
+        process.env.YT_DLP_COOKIES_CONTENT ||
+        process.env.YT_DLP_COOKIES_BASE64)
     ) {
-      console.warn(
-        "Cookies navigateur indisponibles, nouvel essai sans cookies…",
-      );
+      console.warn("Cookies indisponibles, nouvel essai sans cookies…");
       const fallback = args.filter(
         (a, i, arr) =>
           a !== "--cookies-from-browser" &&

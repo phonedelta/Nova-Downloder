@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { cookiesArgs } from "./youtubeCookies";
 
 export function run(
   command: string,
@@ -176,17 +177,7 @@ export const common = () => {
     args.push("--extractor-args", potArgs);
   }
 
-  // Only attach cookies when explicitly enabled AND a source is set.
-  // Empty Firefox extractions cookies break media downloads (HTTP 403).
-  const useCookies = process.env.YT_DLP_USE_COOKIES === "1";
-  const cookiesFile = process.env.YT_DLP_COOKIES?.trim();
-  const cookiesBrowser = process.env.YT_DLP_COOKIES_FROM_BROWSER?.trim();
-
-  if (useCookies && cookiesFile) {
-    args.push("--cookies", cookiesFile);
-  } else if (useCookies && cookiesBrowser) {
-    args.push("--cookies-from-browser", cookiesBrowser);
-  }
+  args.push(...cookiesArgs());
 
   return args;
 };
@@ -237,7 +228,7 @@ export function publicError(e: unknown) {
     return "Le moteur de téléchargement est indisponible. Veuillez réessayer plus tard.";
   if (/private/i.test(s)) return "Cette vidéo est privée.";
   if (/confirm.*(you.?re|you are).*not a bot|cookies-from-browser|pass cookies/i.test(s))
-    return "YouTube bloque temporairement l’accès (vérification anti-bot). Sur le serveur, configurez YT_DLP_COOKIES_FROM_BROWSER=chrome (ou firefox) dans .env, puis redémarrez NovaDownloader.";
+    return "YouTube bloque temporairement l’accès (vérification anti-bot). Sur Railway, exportez vos cookies YouTube et définissez la variable YT_DLP_COOKIES_BASE64 (voir README).";
   if (/age.?restrict|sign in to confirm your age|login required/i.test(s))
     return "Cette vidéo présente une restriction d’âge ou nécessite une connexion.";
   if (/sign in/i.test(s))

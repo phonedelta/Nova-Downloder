@@ -21,6 +21,7 @@ import {
 } from "../backend/services/genericMedia.service";
 import { publicError } from "../backend/services/process";
 import { ensurePotServer } from "../backend/services/potServer";
+import { resolveCookiesFile } from "../backend/services/youtubeCookies";
 import { youtubeUrl } from "../src/utils/format";
 import { translateSrt } from "../backend/services/translation.service";
 import { jobs, cleanupJob } from "../backend/services/download.service";
@@ -474,6 +475,7 @@ app.use(
   },
 );
 void ensurePotServer().finally(() => {
+  resolveCookiesFile();
   // Railway / containers must bind 0.0.0.0; local defaults to loopback.
   const host =
     process.env.HOST ||
