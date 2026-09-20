@@ -35,6 +35,11 @@ COPY packages ./packages
 RUN npm ci
 
 COPY . .
+# Bake public Railway URLs into the downloadable extension zip
+ENV VITE_NOVA_API_BASE_URL=https://nova-downloder.up.railway.app
+ENV VITE_NOVA_PUBLIC_DOWNLOAD_BASE_URL=https://nova-downloder.up.railway.app
+ENV VITE_NOVA_WEB_BASE_URL=https://nova-downloder.up.railway.app
+ENV VITE_NOVA_ENV=production
 RUN npm run build
 
 COPY scripts/docker-start.sh /usr/local/bin/nova-start

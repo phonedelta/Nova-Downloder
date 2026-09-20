@@ -1,6 +1,8 @@
 node_modules
 dist
 dist-extension
+dist-extension.zip
+public/NovaDownloader-extension.zip
 .env
 extension/.env
 .playwright

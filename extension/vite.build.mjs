@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = __dirname;
@@ -200,7 +201,38 @@ async function buildExtension() {
   mkdirSync(iconsDst, { recursive: true });
   if (existsSync(iconsSrc)) cpSync(iconsSrc, iconsDst, { recursive: true });
 
+  // Zip for “Télécharger le ZIP” on the website
+  const zipOut = resolve(root, "../public/NovaDownloader-extension.zip");
+  mkdirSync(dirname(zipOut), { recursive: true });
+  if (existsSync(zipOut)) rmSync(zipOut, { force: true });
+  const zipResult = spawnSync(
+    "python3",
+    [
+      "-c",
+      `
+import zipfile, pathlib, sys
+src = pathlib.Path(sys.argv[1])
+dst = pathlib.Path(sys.argv[2])
+with zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_DEFLATED) as z:
+    for path in src.rglob("*"):
+        if path.is_file():
+            z.write(path, path.relative_to(src).as_posix())
+print(dst)
+`,
+      outDir,
+      zipOut,
+    ],
+    { encoding: "utf8" },
+  );
+  if (zipResult.status !== 0) {
+    console.error(zipResult.stderr || zipResult.stdout);
+    throw new Error("Failed to create NovaDownloader-extension.zip");
+  }
+  // Also copy next to dist-extension for convenience
+  cpSync(zipOut, resolve(root, "../dist-extension.zip"));
+
   console.log("Extension built → dist-extension/");
+  console.log("Extension zip  → public/NovaDownloader-extension.zip");
 }
 
 buildExtension().catch((err) => {

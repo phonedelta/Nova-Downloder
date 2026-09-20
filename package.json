@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "concurrently \"vite --host 0.0.0.0\" \"tsx watch api/server.ts\"",
     "dev:extension": "vite --config extension/vite.config.ts",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && npm run build:extension && vite build",
     "build:extension": "node extension/vite.build.mjs",
+    "build:web": "tsc --noEmit && vite build",
     "start": "tsx api/server.ts",
     "test": "node --import tsx --test tests/*.test.ts"
   },

@@ -519,6 +519,11 @@ Object.assign(messages, {
   ],
   "Extension installée": ["Extension installed", "تم تثبيت الإضافة", "Uzantı yüklü"],
   "Ouvrir YouTube": ["Open YouTube", "فتح YouTube", "YouTube’ı aç"],
+  "Télécharger le ZIP": [
+    "Download ZIP",
+    "تنزيل ZIP",
+    "ZIP indir",
+  ],
   "L’extension NovaDownloader est disponible sur les navigateurs desktop compatibles.": [
     "The NovaDownloader extension is available on compatible desktop browsers.",
     "إضافة NovaDownloader متاحة على متصفحات سطح المكتب المتوافقة.",

@@ -118,27 +118,47 @@ export function ExtensionPage({
                   <Check size={16} />
                   {t("Extension installée")}
                 </p>
+                <div className="extension-cta-row">
+                  <a
+                    className="button green-button"
+                    href="https://www.youtube.com"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t("Ouvrir YouTube")}
+                    <ArrowRight size={16} />
+                  </a>
+                  <a
+                    className="button extension-zip-btn"
+                    href="/NovaDownloader-extension.zip"
+                    download="NovaDownloader-extension.zip"
+                  >
+                    <Download size={16} />
+                    {t("Télécharger le ZIP")}
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="extension-cta-row">
                 <a
-                  className="button green-button"
-                  href="https://www.youtube.com"
+                  className="button green-button extension-cta"
+                  href={store}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {t("Ouvrir YouTube")}
-                  <ArrowRight size={16} />
+                  <Puzzle size={18} />
+                  {cta}
+                  <ExternalLink size={15} />
+                </a>
+                <a
+                  className="button extension-zip-btn"
+                  href="/NovaDownloader-extension.zip"
+                  download="NovaDownloader-extension.zip"
+                >
+                  <Download size={16} />
+                  {t("Télécharger le ZIP")}
                 </a>
               </div>
-            ) : (
-              <a
-                className="button green-button extension-cta"
-                href={store}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Puzzle size={18} />
-                {cta}
-                <ExternalLink size={15} />
-              </a>
             )}
           </div>
 

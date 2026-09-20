@@ -1971,6 +1971,32 @@ footer {
   min-height: 48px;
   padding-inline: 18px;
 }
+.extension-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.extension-zip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding-inline: 16px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 12px;
+  font-weight: 650;
+  font-size: 14px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.extension-zip-btn:hover {
+  background: #ffffff0d;
+  border-color: color-mix(in srgb, var(--accent, #b6ff2f) 45%, var(--border));
+}
 .extension-installed {
   display: flex;
   flex-direction: column;
