@@ -172,6 +172,55 @@ app.post("/api/admin/youtube-cookies", express.json({ limit: "2mb" }), (q, r) =>
   r.json({ ok: true, youtubeCookies: true });
 });
 
+/** Debug yt-dlp extract on the server (Bearer = DOWNLOAD_SIGNING_SECRET). */
+app.post("/api/admin/probe-youtube", express.json({ limit: "32kb" }), async (q, r) => {
+  const secret = process.env.DOWNLOAD_SIGNING_SECRET?.trim();
+  const auth = String(q.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  if (!secret || auth !== secret) {
+    r.status(401).json({ error: "Non autorisé." });
+    return;
+  }
+  const url = youtubeUrl(String(q.body?.url || ""));
+  if (!url) {
+    r.status(400).json({ error: "URL YouTube invalide." });
+    return;
+  }
+  try {
+    const { run, ytdlp, common } = await import("../backend/services/process");
+    const raw = await run(
+      ytdlp(),
+      [...common(), "--dump-single-json", "--skip-download", "--", url],
+      undefined,
+      180000,
+    );
+    const data = JSON.parse(raw);
+    const heights = [
+      ...new Set(
+        (data.formats || [])
+          .map((f: { height?: number }) => f.height)
+          .filter(Boolean),
+      ),
+    ].sort((a: number, b: number) => b - a);
+    r.json({
+      ok: true,
+      title: data.title,
+      id: data.id,
+      heights: heights.slice(0, 12),
+      formatCount: (data.formats || []).length,
+      cookies: !!resolveCookiesFile(),
+      potReachable: await isPotServerReachable(),
+    });
+  } catch (e) {
+    r.status(422).json({
+      ok: false,
+      error: String(e).slice(-2500),
+      cookies: !!resolveCookiesFile(),
+      potReachable: await isPotServerReachable(),
+      potLog: potLogTail(800) || undefined,
+    });
+  }
+});
+
 app.post("/api/analyze", heavy, async (q, r) => {
   if (!youtubeUrl(q.body.url)) {
     r.status(400).json({

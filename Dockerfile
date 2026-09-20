@@ -19,7 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgif7 \
     librsvg2-2 \
   && pip3 install --no-cache-dir --break-system-packages -U \
-      "yt-dlp>=2025.5.22" \
+      "yt-dlp[default]>=2025.5.22" \
+      "yt-dlp-ejs" \
       "bgutil-ytdlp-pot-provider==2.0.0" \
   && rm -rf /var/lib/apt/lists/*
 
