@@ -43,6 +43,21 @@ function isAllowedOrigin(origin: string | undefined): boolean {
     return true;
   if (origin === "http://127.0.0.1:3001" || origin === "http://localhost:3001")
     return true;
+  // Same Railway / custom public domain
+  try {
+    const host = new URL(origin).hostname.toLowerCase();
+    if (host.endsWith(".up.railway.app") || host.endsWith(".railway.app"))
+      return true;
+    const pub = (
+      process.env.NOVA_PUBLIC_DOWNLOAD_BASE_URL ||
+      process.env.RAILWAY_PUBLIC_DOMAIN ||
+      ""
+    ).toLowerCase();
+    if (pub && (pub.includes(host) || origin.toLowerCase().includes(pub)))
+      return true;
+  } catch {
+    /* */
+  }
   const extra = (process.env.CORS_ORIGINS || "")
     .split(",")
     .map((s) => s.trim())
@@ -51,6 +66,27 @@ function isAllowedOrigin(origin: string | undefined): boolean {
   if (/^chrome-extension:\/\/[a-z]{32}$/.test(origin)) return true;
   if (/^moz-extension:\/\/[0-9a-f-]+$/.test(origin)) return true;
   return false;
+}
+
+function requestPublicHost(req: express.Request): {
+  host?: string;
+  proto?: string;
+} {
+  const xfHost = String(req.headers["x-forwarded-host"] || "")
+    .split(",")[0]
+    ?.trim();
+  const host = xfHost || String(req.headers.host || "").trim();
+  const xfProto = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    ?.trim()
+    .toLowerCase();
+  const proto =
+    xfProto === "http" || xfProto === "https"
+      ? xfProto
+      : req.secure
+        ? "https"
+        : "https";
+  return { host: host || undefined, proto };
 }
 
 app.use("/api", (req, res, next) => {
@@ -137,7 +173,7 @@ app.post("/api/download/prepare", prepareLimit, async (q, r) => {
     return;
   }
   try {
-    const result = await prepareDownload(kind, q.body);
+    const result = await prepareDownload(kind, q.body, requestPublicHost(q));
     r.json(result);
   } catch (e) {
     console.error(e);

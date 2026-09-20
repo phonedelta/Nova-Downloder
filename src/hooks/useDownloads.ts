@@ -1,4 +1,4 @@
-import { startBrowserDownload } from "../services/downloadFile";
+import { startBrowserDownload, resolveDownloadUrl } from "../services/downloadFile";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { request } from "../services/api";
 import type { Recent } from "../types";
@@ -15,6 +15,70 @@ type ActiveWebDownload = {
   speedBytesPerSecond: number;
   etaSeconds: number | null;
 };
+
+async function waitUntilMaterializedWeb(
+  downloadUrl: string,
+  onProgress?: (info: {
+    prepareProgress: number | null;
+    totalBytes: number | null;
+    estimatedTotalBytes: number | null;
+    speedBytesPerSecond: number;
+    etaSeconds: number | null;
+    state: string;
+  }) => void,
+): Promise<void> {
+  const url = resolveDownloadUrl(downloadUrl);
+  let parsed: URL;
+  try {
+    parsed = new URL(url, window.location.origin);
+  } catch {
+    return;
+  }
+  const id = parsed.pathname.match(/\/download\/stream\/([^/?#]+)/)?.[1];
+  const sig = parsed.searchParams.get("sig") || "";
+  if (!id) return;
+
+  // Kick off server-side build
+  await fetch(
+    `/api/download/materialize/${encodeURIComponent(id)}?sig=${encodeURIComponent(sig)}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+  ).catch(() => {
+    /* stream endpoint can still build on GET */
+  });
+
+  const started = Date.now();
+  while (Date.now() - started < 15 * 60 * 1000) {
+    try {
+      const s = await request<{
+        state: string;
+        prepareProgress?: number | null;
+        totalBytes?: number | null;
+        estimatedTotalBytes?: number | null;
+        speedBytesPerSecond?: number;
+        etaSeconds?: number | null;
+        error?: string;
+      }>(`/download/status/${encodeURIComponent(id)}`);
+      onProgress?.({
+        prepareProgress:
+          typeof s.prepareProgress === "number" ? s.prepareProgress : null,
+        totalBytes: s.totalBytes ?? null,
+        estimatedTotalBytes: s.estimatedTotalBytes ?? null,
+        speedBytesPerSecond: s.speedBytesPerSecond || 0,
+        etaSeconds: s.etaSeconds ?? null,
+        state: s.state,
+      });
+      if (s.state === "ready" || s.state === "streaming" || s.state === "done") {
+        return;
+      }
+      if (s.state === "failed" || s.state === "cancelled") {
+        throw new Error(s.error || "Préparation impossible.");
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("Préparation")) throw e;
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}
 
 export function useDownloads() {
   const [preparing, setPreparing] = useState(false);
@@ -122,32 +186,62 @@ export function useDownloads() {
         ...(body as object),
         type: kind,
       });
-      await startBrowserDownload({
-        downloadUrl: prepared.downloadUrl,
-        filename: prepared.filename,
-        kind,
-        title: item.title,
-        quality: item.format,
-      });
-      const tokenMatch = prepared.downloadUrl.match(
+      const downloadUrl = resolveDownloadUrl(prepared.downloadUrl);
+      const tokenMatch = downloadUrl.match(
         /\/download\/stream\/([^/?#]+)/,
       );
-      if (tokenMatch?.[1]) {
+
+      if (tokenMatch?.[1] && (kind === "video" || kind === "audio")) {
         setActive((prev) => [
           {
-            jobId: tokenMatch[1],
+            jobId: tokenMatch[1]!,
             title: item.title,
-            state: "downloading",
+            state: "preparing",
             bytesSent: 0,
             totalBytes: null,
             totalBytesExact: false,
             estimatedTotalBytes: null,
-            progress: null,
+            progress: 0,
             speedBytesPerSecond: 0,
             etaSeconds: null,
           },
           ...prev,
         ]);
+        setStatus("Préparation du fichier…");
+        await waitUntilMaterializedWeb(downloadUrl, (info) => {
+          setActive((prev) =>
+            prev.map((j) =>
+              j.jobId === tokenMatch[1]
+                ? {
+                    ...j,
+                    state: info.state === "ready" ? "starting" : "preparing",
+                    progress: info.prepareProgress,
+                    totalBytes: info.totalBytes,
+                    estimatedTotalBytes: info.estimatedTotalBytes,
+                    speedBytesPerSecond: info.speedBytesPerSecond,
+                    etaSeconds: info.etaSeconds,
+                  }
+                : j,
+            ),
+          );
+        });
+      }
+
+      await startBrowserDownload({
+        downloadUrl,
+        filename: prepared.filename,
+        kind,
+        title: item.title,
+        quality: item.format,
+      });
+      if (tokenMatch?.[1]) {
+        setActive((prev) =>
+          prev.map((j) =>
+            j.jobId === tokenMatch[1]
+              ? { ...j, state: "downloading" }
+              : j,
+          ),
+        );
       }
       setStatus("Téléchargement lancé — vous pouvez fermer cette page.");
       const next = [

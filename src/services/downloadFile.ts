@@ -1,11 +1,31 @@
 /**
  * Start a download without a Save As dialog when the NovaDownloader
  * extension is present (chrome.downloads + saveAs:false + folders).
- * Falls back to a hidden iframe for browsers without the extension.
+ * Falls back to a same-origin <a> click (iframe is unreliable for attachments).
  */
 
 function extensionInstalled(): boolean {
   return document.documentElement.dataset.novaExtension === "1";
+}
+
+/** Rewrite prepare URLs that incorrectly point at localhost (common on Railway). */
+export function resolveDownloadUrl(downloadUrl: string): string {
+  const raw = String(downloadUrl || "").trim();
+  if (!raw) return raw;
+  try {
+    const u = new URL(raw, window.location.origin);
+    if (
+      u.hostname === "127.0.0.1" ||
+      u.hostname === "localhost" ||
+      /TON-SERVICE/i.test(u.hostname)
+    ) {
+      return `${window.location.origin}${u.pathname}${u.search}`;
+    }
+    return u.toString();
+  } catch {
+    if (raw.startsWith("/")) return `${window.location.origin}${raw}`;
+    return raw;
+  }
 }
 
 function requestSilentViaExtension(opts: {
@@ -47,21 +67,15 @@ function requestSilentViaExtension(opts: {
   });
 }
 
-function iframeFallback(downloadUrl: string) {
-  const iframe = document.createElement("iframe");
-  iframe.setAttribute("aria-hidden", "true");
-  iframe.tabIndex = -1;
-  iframe.style.cssText =
-    "position:fixed;width:0;height:0;border:0;visibility:hidden;pointer-events:none";
-  iframe.src = downloadUrl;
-  document.body.append(iframe);
-  window.setTimeout(() => {
-    try {
-      iframe.remove();
-    } catch {
-      /* already gone */
-    }
-  }, 120_000);
+function anchorDownload(downloadUrl: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = filename || "download";
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 export type SilentDownloadOptions = {
@@ -77,8 +91,7 @@ export type SilentDownloadOptions = {
 
 /**
  * Prefer extension silent download (no Save As, correct folders).
- * Otherwise fall back to iframe (browser may still prompt if Chrome
- * setting "Ask where to save each file" is enabled).
+ * Otherwise trigger a same-origin navigation/download.
  */
 export async function startBrowserDownload(
   downloadUrlOrOpts: string | SilentDownloadOptions,
@@ -94,15 +107,15 @@ export async function startBrowserDownload(
         }
       : downloadUrlOrOpts;
 
-  const url = String(opts.downloadUrl || "").trim();
+  const url = resolveDownloadUrl(String(opts.downloadUrl || "").trim());
   if (!url) return;
 
   if (extensionInstalled()) {
-    const ok = await requestSilentViaExtension(opts);
+    const ok = await requestSilentViaExtension({ ...opts, downloadUrl: url });
     if (ok) return;
   }
 
-  iframeFallback(url);
+  anchorDownload(url, opts.filename);
 }
 
 /** @deprecated Prefer startBrowserDownload with prepare stream URLs. */

@@ -23,11 +23,50 @@ const SECRET =
   randomBytes(32).toString("hex");
 
 /** Browser-reachable API origin (never Docker-internal hostnames). */
-export function publicApiBaseUrl(): string {
-  const raw =
+export function publicApiBaseUrl(reqHost?: {
+  host?: string;
+  proto?: string;
+}): string {
+  const railwayDomain =
+    process.env.RAILWAY_PUBLIC_DOMAIN ||
+    process.env.RAILWAY_STATIC_URL ||
+    "";
+  const railwayBase = railwayDomain
+    ? railwayDomain.startsWith("http")
+      ? railwayDomain.replace(/\/$/, "")
+      : `https://${railwayDomain.replace(/\/$/, "")}`
+    : "";
+
+  const fromReq =
+    reqHost?.host &&
+    !/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(reqHost.host)
+      ? `${reqHost.proto === "http" ? "http" : "https"}://${reqHost.host.replace(/\/$/, "")}`
+      : "";
+
+  const configured = (
     process.env.NOVA_PUBLIC_DOWNLOAD_BASE_URL ||
     process.env.PUBLIC_API_BASE_URL ||
     process.env.NOVA_API_BASE_URL ||
+    ""
+  )
+    .trim()
+    .replace(/\/$/, "");
+
+  // Ignore placeholder / leftover localhost config on Railway
+  const configuredOk =
+    configured &&
+    !/TON-SERVICE/i.test(configured) &&
+    !(
+      process.env.RAILWAY_ENVIRONMENT &&
+      /127\.0\.0\.1|localhost/i.test(configured)
+    )
+      ? configured
+      : "";
+
+  const raw =
+    configuredOk ||
+    railwayBase ||
+    fromReq ||
     `http://127.0.0.1:${process.env.PORT || "3001"}`;
   const base = raw.replace(/\/$/, "");
   try {
@@ -54,10 +93,14 @@ export function publicApiBaseUrl(): string {
 }
 
 /** Absolute URL for chrome.downloads.download() — never a relative /api path. */
-export function buildPublicDownloadUrl(id: string, sig: string): string {
+export function buildPublicDownloadUrl(
+  id: string,
+  sig: string,
+  reqHost?: { host?: string; proto?: string },
+): string {
   return new URL(
     `/api/download/stream/${encodeURIComponent(id)}?sig=${encodeURIComponent(sig)}`,
-    `${publicApiBaseUrl()}/`,
+    `${publicApiBaseUrl(reqHost)}/`,
   ).toString();
 }
 
@@ -159,6 +202,7 @@ export async function prepareDownload(
     language?: string;
     targetLanguage?: string;
   },
+  reqHost?: { host?: string; proto?: string },
 ): Promise<{
   success: true;
   jobId: string;
@@ -265,7 +309,7 @@ export async function prepareDownload(
   };
   tokens.set(id, token);
 
-  const downloadUrl = buildPublicDownloadUrl(id, token.sig);
+  const downloadUrl = buildPublicDownloadUrl(id, token.sig, reqHost);
 
   console.log("[NOVA PREPARE] videoId =", data.video.id);
   console.log("[NOVA PREPARE] formatId =", formatId);
