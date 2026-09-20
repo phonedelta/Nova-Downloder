@@ -1,11 +1,17 @@
-import { startBrowserDownload, resolveDownloadUrl } from "../services/downloadFile";
+import {
+  startBrowserDownload,
+  resolveDownloadUrl,
+} from "../services/downloadFile";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { request } from "../services/api";
 import type { Recent } from "../types";
 
-type ActiveWebDownload = {
+export type ActiveWebDownload = {
   jobId: string;
   title: string;
+  thumbnail?: string;
+  quality?: string;
+  kind: "video" | "audio" | "subtitles";
   state: string;
   bytesSent: number;
   totalBytes: number | null;
@@ -14,6 +20,8 @@ type ActiveWebDownload = {
   progress: number | null;
   speedBytesPerSecond: number;
   etaSeconds: number | null;
+  error?: string;
+  completedAt?: number;
 };
 
 async function waitUntilMaterializedWeb(
@@ -25,6 +33,7 @@ async function waitUntilMaterializedWeb(
     speedBytesPerSecond: number;
     etaSeconds: number | null;
     state: string;
+    bytesSent?: number;
   }) => void,
 ): Promise<void> {
   const url = resolveDownloadUrl(downloadUrl);
@@ -38,12 +47,15 @@ async function waitUntilMaterializedWeb(
   const sig = parsed.searchParams.get("sig") || "";
   if (!id) return;
 
-  // Kick off server-side build
   await fetch(
     `/api/download/materialize/${encodeURIComponent(id)}?sig=${encodeURIComponent(sig)}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
   ).catch(() => {
-    /* stream endpoint can still build on GET */
+    /* GET stream can still build */
   });
 
   const started = Date.now();
@@ -56,7 +68,8 @@ async function waitUntilMaterializedWeb(
         estimatedTotalBytes?: number | null;
         speedBytesPerSecond?: number;
         etaSeconds?: number | null;
-        error?: string;
+        bytesSent?: number;
+        error?: string | { message?: string } | null;
       }>(`/download/status/${encodeURIComponent(id)}`);
       onProgress?.({
         prepareProgress:
@@ -66,17 +79,23 @@ async function waitUntilMaterializedWeb(
         speedBytesPerSecond: s.speedBytesPerSecond || 0,
         etaSeconds: s.etaSeconds ?? null,
         state: s.state,
+        bytesSent: s.bytesSent,
       });
       if (s.state === "ready" || s.state === "streaming" || s.state === "done") {
         return;
       }
       if (s.state === "failed" || s.state === "cancelled") {
-        throw new Error(s.error || "Préparation impossible.");
+        const msg =
+          typeof s.error === "string"
+            ? s.error
+            : s.error?.message || "Préparation impossible.";
+        throw new Error(msg);
       }
     } catch (e) {
-      if (e instanceof Error && e.message.includes("Préparation")) throw e;
+      if (e instanceof Error && /Préparation|impossible|Échec/i.test(e.message))
+        throw e;
     }
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 800));
   }
 }
 
@@ -102,7 +121,16 @@ export function useDownloads() {
     const current = activeRef.current;
     if (!current.length) return;
     const next: ActiveWebDownload[] = [];
+    const now = Date.now();
+
     for (const job of current) {
+      if (job.state === "completed" || job.state === "failed") {
+        // Keep finished cards ~8s then drop
+        if (job.completedAt && now - job.completedAt > 8000) continue;
+        next.push(job);
+        continue;
+      }
+
       try {
         const s = await request<{
           jobId: string;
@@ -111,39 +139,76 @@ export function useDownloads() {
           totalBytes: number | null;
           totalBytesExact: boolean;
           estimatedTotalBytes: number | null;
+          prepareProgress: number | null;
           speedBytesPerSecond: number;
           etaSeconds: number | null;
+          error: { code: string; message: string } | null;
         }>(`/download/status/${encodeURIComponent(job.jobId)}`);
-        const progress =
+
+        let progress: number | null = null;
+        if (
+          s.state === "preparing" ||
+          s.state === "ready" ||
+          s.state === "paused"
+        ) {
+          progress =
+            typeof s.prepareProgress === "number" ? s.prepareProgress : job.progress;
+        } else if (
           s.totalBytesExact &&
           typeof s.totalBytes === "number" &&
           s.totalBytes > 0
-            ? Math.min(100, Math.max(0, (s.bytesSent / s.totalBytes) * 100))
-            : null;
-        next.push({
-          jobId: s.jobId,
-          title: job.title,
-          state: s.state,
-          bytesSent: s.bytesSent,
+        ) {
+          progress = Math.min(
+            100,
+            Math.max(0, (s.bytesSent / s.totalBytes) * 100),
+          );
+        } else if (typeof s.prepareProgress === "number") {
+          progress = s.prepareProgress;
+        } else {
+          progress = job.progress;
+        }
+
+        let state = s.state;
+        if (s.state === "ready" && job.state === "downloading") {
+          state = "downloading";
+        }
+        if (s.state === "done" || s.state === "streaming") {
+          // During browser transfer, status may be streaming/done
+          if (s.state === "done" || (s.bytesSent > 0 && s.totalBytesExact && s.bytesSent >= (s.totalBytes || 0))) {
+            state = s.state === "done" ? "completed" : "downloading";
+          } else {
+            state = "downloading";
+          }
+        }
+        if (s.state === "failed") state = "failed";
+
+        const updated: ActiveWebDownload = {
+          ...job,
+          state,
+          bytesSent: s.bytesSent ?? job.bytesSent,
           totalBytes: s.totalBytes,
           totalBytesExact: s.totalBytesExact,
           estimatedTotalBytes: s.estimatedTotalBytes,
-          progress,
-          speedBytesPerSecond: s.speedBytesPerSecond,
+          progress: state === "completed" ? 100 : progress,
+          speedBytesPerSecond: s.speedBytesPerSecond || 0,
           etaSeconds: s.etaSeconds,
-        });
+          error: s.error?.message,
+          completedAt:
+            state === "completed" || state === "failed"
+              ? job.completedAt || now
+              : undefined,
+        };
+        next.push(updated);
       } catch {
         next.push(job);
       }
     }
-    setActive(
-      next.filter((j) => j.state !== "completed" && j.state !== "failed"),
-    );
+    setActive(next);
   }, []);
 
   useEffect(() => {
     if (!active.length) return;
-    const id = window.setInterval(() => void pollStatus(), 1000);
+    const id = window.setInterval(() => void pollStatus(), 800);
     return () => window.clearInterval(id);
   }, [active.length, pollStatus]);
 
@@ -163,6 +228,10 @@ export function useDownloads() {
     }
   });
 
+  function dismiss(jobId: string) {
+    setActive((prev) => prev.filter((j) => j.jobId !== jobId));
+  }
+
   async function download(
     path: string,
     body: unknown,
@@ -172,30 +241,32 @@ export function useDownloads() {
     setError("");
     setStatus("Préparation…");
 
+    const kind: ActiveWebDownload["kind"] = path.includes("audio")
+      ? "audio"
+      : path.includes("subtitle")
+        ? "subtitles"
+        : "video";
+
     try {
-      const kind =
-        path.includes("audio")
-          ? "audio"
-          : path.includes("subtitle")
-            ? "subtitles"
-            : "video";
       const prepared = await request<{
         downloadUrl: string;
         filename: string;
       }>("/download/prepare", {
         ...(body as object),
-        type: kind,
+        type: kind === "subtitles" ? "subtitles" : kind,
       });
       const downloadUrl = resolveDownloadUrl(prepared.downloadUrl);
-      const tokenMatch = downloadUrl.match(
-        /\/download\/stream\/([^/?#]+)/,
-      );
+      const tokenMatch = downloadUrl.match(/\/download\/stream\/([^/?#]+)/);
+      const jobId = tokenMatch?.[1];
 
-      if (tokenMatch?.[1] && (kind === "video" || kind === "audio")) {
+      if (jobId && (kind === "video" || kind === "audio")) {
         setActive((prev) => [
           {
-            jobId: tokenMatch[1]!,
+            jobId,
             title: item.title,
+            thumbnail: item.thumbnail,
+            quality: item.format,
+            kind,
             state: "preparing",
             bytesSent: 0,
             totalBytes: null,
@@ -205,13 +276,13 @@ export function useDownloads() {
             speedBytesPerSecond: 0,
             etaSeconds: null,
           },
-          ...prev,
+          ...prev.filter((j) => j.jobId !== jobId),
         ]);
         setStatus("Préparation du fichier…");
         await waitUntilMaterializedWeb(downloadUrl, (info) => {
           setActive((prev) =>
             prev.map((j) =>
-              j.jobId === tokenMatch[1]
+              j.jobId === jobId
                 ? {
                     ...j,
                     state: info.state === "ready" ? "starting" : "preparing",
@@ -220,11 +291,31 @@ export function useDownloads() {
                     estimatedTotalBytes: info.estimatedTotalBytes,
                     speedBytesPerSecond: info.speedBytesPerSecond,
                     etaSeconds: info.etaSeconds,
+                    bytesSent: info.bytesSent ?? j.bytesSent,
                   }
                 : j,
             ),
           );
         });
+      } else if (jobId) {
+        setActive((prev) => [
+          {
+            jobId,
+            title: item.title,
+            thumbnail: item.thumbnail,
+            quality: item.format,
+            kind,
+            state: "downloading",
+            bytesSent: 0,
+            totalBytes: null,
+            totalBytesExact: false,
+            estimatedTotalBytes: null,
+            progress: null,
+            speedBytesPerSecond: 0,
+            etaSeconds: null,
+          },
+          ...prev.filter((j) => j.jobId !== jobId),
+        ]);
       }
 
       await startBrowserDownload({
@@ -234,11 +325,12 @@ export function useDownloads() {
         title: item.title,
         quality: item.format,
       });
-      if (tokenMatch?.[1]) {
+
+      if (jobId) {
         setActive((prev) =>
           prev.map((j) =>
-            j.jobId === tokenMatch[1]
-              ? { ...j, state: "downloading" }
+            j.jobId === jobId
+              ? { ...j, state: "downloading", progress: j.progress ?? 0 }
               : j,
           ),
         );
@@ -251,14 +343,36 @@ export function useDownloads() {
       setRecent(next);
       try {
         localStorage.setItem("nova-history", JSON.stringify(next));
-      } catch {}
-    } catch {
-      setError("Le téléchargement n’a pas pu être préparé. Réessayez.");
+      } catch {
+        /* */
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Le téléchargement n’a pas pu être préparé. Réessayez.",
+      );
       setStatus("");
+      setActive((prev) =>
+        prev.map((j) =>
+          j.state === "preparing" || j.state === "starting"
+            ? {
+                ...j,
+                state: "failed",
+                error:
+                  e instanceof Error
+                    ? e.message
+                    : "Le téléchargement n’a pas pu être préparé.",
+                completedAt: Date.now(),
+              }
+            : j,
+        ),
+      );
     } finally {
       setPreparing(false);
     }
   }
+
   function clear() {
     setRecent([]);
     try {
@@ -269,7 +383,6 @@ export function useDownloads() {
   }
 
   return {
-    // Keep `busy` for prepare feedback only — does not block other starts
     busy: preparing,
     status,
     error,
@@ -277,5 +390,6 @@ export function useDownloads() {
     active,
     download,
     clear,
+    dismiss,
   };
 }

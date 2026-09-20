@@ -1167,6 +1167,127 @@ footer {
   background: var(--error-bg);
   color: var(--error);
 }
+
+/* Active downloads — same info as extension (%, speed, ETA) */
+.web-dl-list {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.web-dl-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 14px 16px 12px;
+}
+.web-dl-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.web-dl-thumb {
+  width: 56px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: #111;
+}
+.web-dl-thumb--empty {
+  background: linear-gradient(135deg, #2a2d35, #1a1c22);
+}
+.web-dl-main {
+  flex: 1;
+  min-width: 0;
+}
+.web-dl-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.web-dl-meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.web-dl-pct {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent, #b6ff2f);
+  flex-shrink: 0;
+}
+.web-dl-spin {
+  color: var(--accent, #b6ff2f);
+  flex-shrink: 0;
+}
+.web-dl-dismiss {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.web-dl-dismiss:hover {
+  background: #ffffff12;
+  color: var(--text);
+}
+.web-dl-progress {
+  margin-top: 12px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ffffff12;
+  overflow: hidden;
+}
+.web-dl-progress-value {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--accent, #b6ff2f);
+  transition: width 0.35s ease;
+}
+.web-dl-progress--indeterminate .web-dl-progress-value {
+  width: 40%;
+  animation: web-dl-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes web-dl-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+.web-dl-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.web-dl-status {
+  margin: 10px 0 0;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text);
+}
+.web-dl-status--error {
+  color: var(--error);
+}
+.web-dl-status--done {
+  color: var(--accent, #b6ff2f);
+}
+
 .analyze-error {
   color: var(--error);
   font-size: 13px;

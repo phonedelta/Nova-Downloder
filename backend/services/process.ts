@@ -49,34 +49,78 @@ export function run(
   });
 }
 
+function resolveOnPath(command: string): string | null {
+  if (!command || command.includes("/") || command.includes("\\")) {
+    return existsSync(command) ? command : null;
+  }
+  const pathEnv = process.env.PATH || "";
+  for (const dir of pathEnv.split(process.platform === "win32" ? ";" : ":")) {
+    if (!dir) continue;
+    const candidate = join(dir, command);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 export const ytdlp = () => {
   const configured = process.env.YT_DLP_PATH || "yt-dlp";
+  const toolsBin = join(process.cwd(), ".tools/bin");
   // Standalone binary cannot load POT plugins → often only 360p.
   // Prefer the Python wrapper when it exists next to the project tools.
-  const python = join(process.cwd(), ".tools/bin/yt-dlp-python");
-  if (
-    existsSync(python) &&
-    (/yt-dlp_macos|yt-dlp\.exe$/i.test(configured) ||
-      process.env.YT_DLP_FORCE_PYTHON === "1")
-  ) {
+  const python = join(toolsBin, "yt-dlp-python");
+  const forcePython =
+    process.env.YT_DLP_FORCE_PYTHON === "1" ||
+    /yt-dlp_macos|yt-dlp\.exe$/i.test(configured);
+
+  if (existsSync(python) && (forcePython || configured === "yt-dlp")) {
+    // Local: Node often lacks .tools/bin on PATH → use absolute Python wrapper.
     return python;
+  }
+  if (configured !== "yt-dlp" && existsSync(configured)) return configured;
+
+  const fromPath = resolveOnPath(configured);
+  if (fromPath) return fromPath;
+
+  for (const name of [
+    "yt-dlp-python",
+    "yt-dlp-latest",
+    "yt-dlp_macos",
+    "yt-dlp",
+  ]) {
+    const candidate = join(toolsBin, name);
+    if (existsSync(candidate)) return candidate;
   }
   return configured;
 };
 
 export function ffmpegBin() {
   const configured = process.env.FFMPEG_PATH || "ffmpeg";
+  const local = join(process.cwd(), ".tools/bin/ffmpeg");
+
+  if (configured !== "ffmpeg" && existsSync(configured)) return configured;
+
   if (
     configured === "ffmpeg" ||
     configured.endsWith("ffmpeg") ||
     configured.endsWith("ffmpeg.exe")
-  )
+  ) {
+    const fromPath = resolveOnPath(
+      configured.includes("/") || configured.includes("\\")
+        ? "ffmpeg"
+        : configured.replace(/\.exe$/i, "") || "ffmpeg",
+    );
+    if (fromPath) return fromPath;
+    if (existsSync(local)) return local;
     return configured;
+  }
+
   const candidate = join(
     configured,
     process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
   );
-  return existsSync(candidate) ? candidate : configured;
+  if (existsSync(candidate)) return candidate;
+  if (existsSync(local)) return local;
+  return configured;
 }
 
 /** Resolve `node` for yt-dlp JS challenge solver (nsig / mweb HD). */
@@ -118,11 +162,15 @@ export const common = () => {
       "youtube:player_client=mweb,tv,android,ios",
   ];
 
-  // Optional second extractor-args for the PO Token HTTP provider
+  // Optional second extractor-args for the PO Token HTTP provider.
+  // Default to local bgutil server so HD formats work in Docker/Railway.
+  const potDisabled = process.env.YT_DLP_POT_DISABLE === "1";
   const potArgs =
     process.env.YT_DLP_POT_EXTRACTOR_ARGS?.trim() ||
-    (process.env.YT_DLP_POT_BASE_URL
-      ? `youtubepot-bgutilhttp:base_url=${process.env.YT_DLP_POT_BASE_URL.replace(/\/$/, "")}`
+    (!potDisabled
+      ? `youtubepot-bgutilhttp:base_url=${(
+          process.env.YT_DLP_POT_BASE_URL || "http://127.0.0.1:4416"
+        ).replace(/\/$/, "")}`
       : "");
   if (potArgs) {
     args.push("--extractor-args", potArgs);

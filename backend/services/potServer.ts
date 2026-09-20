@@ -19,6 +19,21 @@ async function ping(timeoutMs = 1500): Promise<boolean> {
   }
 }
 
+function potMainJs(): string | null {
+  const candidates = [
+    join(process.cwd(), ".tools/bgutil-ytdlp-pot-provider/server/build/main.js"),
+    "/opt/bgutil-ytdlp-pot-provider/server/build/main.js",
+    join(
+      process.cwd(),
+      "bgutil-ytdlp-pot-provider/server/build/main.js",
+    ),
+  ];
+  for (const path of candidates) {
+    if (existsSync(path)) return path;
+  }
+  return null;
+}
+
 /**
  * Ensure bgutil PO Token HTTP server is reachable.
  * Without it, YouTube often returns only progressive 360p for many videos.
@@ -30,18 +45,15 @@ export async function ensurePotServer(): Promise<boolean> {
     return true;
   }
 
-  const mainJs = join(
-    process.cwd(),
-    ".tools/bgutil-ytdlp-pot-provider/server/build/main.js",
-  );
-  if (!existsSync(mainJs)) {
+  const mainJs = potMainJs();
+  if (!mainJs) {
     console.warn(
-      "[pot] Missing .tools/bgutil-ytdlp-pot-provider — some videos may only show 360p",
+      "[pot] Missing bgutil-ytdlp-pot-provider — some videos may only show 360p",
     );
     return false;
   }
 
-  console.log("[pot] Starting PO Token server…");
+  console.log("[pot] Starting PO Token server…", mainJs);
   const child = spawn(process.execPath, [mainJs], {
     cwd: dirname(mainJs),
     detached: true,
@@ -50,8 +62,8 @@ export async function ensurePotServer(): Promise<boolean> {
   });
   child.unref();
 
-  for (let i = 0; i < 30; i++) {
-    await new Promise((r) => setTimeout(r, 200));
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 250));
     if (await ping()) {
       console.log("[pot] PO Token server ready on", baseUrl());
       return true;

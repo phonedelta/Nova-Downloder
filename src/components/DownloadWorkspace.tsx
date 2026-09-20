@@ -24,6 +24,7 @@ import {
 import type { Analysis } from "../types";
 import { duration } from "../utils/format";
 import { useDownloads } from "../hooks/useDownloads";
+import { ActiveDownloadCard } from "./ActiveDownloadCard";
 type Props = {
   data: Analysis | null;
   loading: boolean;
@@ -563,6 +564,21 @@ export function DownloadWorkspace({ data, loading, lang }: Props) {
           )}
           <span>{t(d.error || d.status)}</span>
         </div>
+      )}
+      {d.active.length > 0 && (
+        <section className="web-dl-list" aria-label={t("Téléchargements en cours")}>
+          <div className="section-title">
+            <h3>{t("Téléchargements en cours")}</h3>
+          </div>
+          {d.active.map((job) => (
+            <ActiveDownloadCard
+              key={job.jobId}
+              job={job}
+              onDismiss={d.dismiss}
+              t={t}
+            />
+          ))}
+        </section>
       )}
       {d.recent.length > 0 && (
         <section className="recent">
