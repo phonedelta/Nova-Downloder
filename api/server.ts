@@ -436,8 +436,15 @@ app.use(
   },
 );
 void ensurePotServer().finally(() => {
-  const server = app.listen(Number(process.env.PORT) || 3001, "127.0.0.1", () =>
-    console.log("Nova API: http://127.0.0.1:3001"),
+  // Railway / containers must bind 0.0.0.0; local defaults to loopback.
+  const host =
+    process.env.HOST ||
+    (process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === "production"
+      ? "0.0.0.0"
+      : "127.0.0.1");
+  const port = Number(process.env.PORT) || 3001;
+  const server = app.listen(port, host, () =>
+    console.log(`Nova API: http://${host}:${port}`),
   );
   server.setTimeout(0);
   server.requestTimeout = 0;
