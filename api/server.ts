@@ -198,9 +198,9 @@ app.post("/api/admin/probe-youtube", express.json({ limit: "32kb" }), async (q, 
       ...new Set(
         (data.formats || [])
           .map((f: { height?: number }) => f.height)
-          .filter(Boolean),
+          .filter((h: number | undefined): h is number => typeof h === "number"),
       ),
-    ].sort((a: number, b: number) => b - a);
+    ].sort((a, b) => b - a);
     r.json({
       ok: true,
       title: data.title,
