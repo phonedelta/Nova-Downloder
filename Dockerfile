@@ -42,8 +42,8 @@ ENV YT_DLP_PATH=yt-dlp
 ENV FFMPEG_PATH=ffmpeg
 ENV YT_DLP_POT_BASE_URL=http://127.0.0.1:4416
 ENV YT_DLP_POT_NODE=/opt/bgutil-node/bin/node
-ENV YT_DLP_EXTRACTOR_ARGS=youtube:player_client=mweb,tv,android,ios
-ENV YT_DLP_DOWNLOAD_EXTRACTOR_ARGS=youtube:player_client=mweb,tv
+ENV YT_DLP_EXTRACTOR_ARGS=youtube:player_client=web,mweb,tv
+ENV YT_DLP_DOWNLOAD_EXTRACTOR_ARGS=youtube:player_client=web,mweb,tv
 # Railway injects PORT
 
 EXPOSE 3001

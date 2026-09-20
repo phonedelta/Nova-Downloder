@@ -20,7 +20,7 @@ import {
   analyzeGenericMedia,
 } from "../backend/services/genericMedia.service";
 import { publicError } from "../backend/services/process";
-import { ensurePotServer } from "../backend/services/potServer";
+import { ensurePotServer, isPotServerReachable } from "../backend/services/potServer";
 import { resolveCookiesFile, installCookiesFromBase64 } from "../backend/services/youtubeCookies";
 import { youtubeUrl } from "../src/utils/format";
 import { clearAnalysisCache } from "../backend/services/videoAnalyzer.service";
@@ -135,7 +135,7 @@ const streamLimit = rateLimit({
   message: { error: "Trop de téléchargements. Réessayez dans une minute." },
 });
 
-app.get("/api/health", (_q, r) =>
+app.get("/api/health", async (_q, r) =>
   r.json({
     status: "ok",
     service: "NovaDownloader",
@@ -143,6 +143,7 @@ app.get("/api/health", (_q, r) =>
     translationAvailable: !!process.env.TRANSLATE_URL,
     youtubeCookies: !!resolveCookiesFile(),
     potConfigured: process.env.YT_DLP_POT_DISABLE !== "1",
+    potReachable: await isPotServerReachable(),
   }),
 );
 

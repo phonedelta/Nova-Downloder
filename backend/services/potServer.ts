@@ -19,6 +19,11 @@ async function ping(timeoutMs = 1500): Promise<boolean> {
   }
 }
 
+export function isPotServerReachable(timeoutMs = 1200): Promise<boolean> {
+  if (process.env.YT_DLP_POT_DISABLE === "1") return Promise.resolve(false);
+  return ping(timeoutMs);
+}
+
 function potMainJs(): string | null {
   const candidates = [
     "/opt/bgutil-ytdlp-pot-provider/server/build/main.js",

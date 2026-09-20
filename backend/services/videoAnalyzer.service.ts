@@ -4,6 +4,7 @@ import {
   type SizeMetadata,
 } from "../../src/utils/fileSize";
 import { run, ytdlp, common } from "./process";
+import { resolveCookiesFile } from "./youtubeCookies";
 import { youtubeUrl } from "../../src/utils/format";
 import type { Analysis } from "../../src/types";
 const cache = new Map<string, { data: Analysis; expires: number }>();
@@ -12,10 +13,16 @@ const BOT_RE =
   /confirm.*(you.?re|you are).*not a bot|Sign in to confirm|cookies-from-browser|pass cookies/i;
 
 /** Clients that sometimes work on datacenter IPs without cookies. */
-const FALLBACK_CLIENTS = [
-  "android_vr,tv_embedded,tv,web_embedded",
-  "tv,android_vr,ios,android",
-  "web,mweb,tv,android_vr",
+const FALLBACK_CLIENTS_NO_COOKIES = [
+  "android_vr,tv,web_embedded",
+  "tv,ios,android",
+];
+
+/** Prefer cookie-compatible clients when Netscape cookies are loaded. */
+const FALLBACK_CLIENTS_WITH_COOKIES = [
+  "web,mweb,tv",
+  "mweb,tv,web_safari",
+  "web,mweb,ios,tv",
 ];
 
 export function clearAnalysisCache() {
@@ -37,7 +44,7 @@ export async function analyze(input: string): Promise<Analysis> {
     try {
       const richer = await dumpJson(url, [
         "--extractor-args",
-        "youtube:player_client=web,mweb,web_safari,ios,android,tv,android_vr",
+        "youtube:player_client=web,mweb,web_safari,tv,ios",
       ]);
       const enriched = buildAnalysis(richer, url);
       if (new Set(enriched.formats.map((f) => f.height)).size > heights.size) {
@@ -59,13 +66,21 @@ async function dumpJsonWithFallbacks(url: string) {
     return await dumpJson(url);
   } catch (first) {
     const msg = String(first);
-    if (!BOT_RE.test(msg)) throw first;
+    if (!BOT_RE.test(msg) && !/page needs to be reloaded|Failed to extract|Unable to extract/i.test(msg)) {
+      throw first;
+    }
+
+    const hasCookies = !!resolveCookiesFile();
+    const clientsList = hasCookies
+      ? FALLBACK_CLIENTS_WITH_COOKIES
+      : FALLBACK_CLIENTS_NO_COOKIES;
 
     console.warn(
-      "[analyze] YouTube bot check — retrying with guest player clients…",
+      "[analyze] YouTube extract failed — retrying with alternate clients…",
+      { hasCookies },
     );
     let last: unknown = first;
-    for (const clients of FALLBACK_CLIENTS) {
+    for (const clients of clientsList) {
       try {
         return await dumpJson(url, [
           "--extractor-args",
@@ -73,7 +88,6 @@ async function dumpJsonWithFallbacks(url: string) {
         ]);
       } catch (e) {
         last = e;
-        if (!BOT_RE.test(String(e))) throw e;
       }
     }
     throw last;

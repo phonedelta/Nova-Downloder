@@ -160,7 +160,7 @@ export const common = () => {
     jsRuntimesArg(),
     "--extractor-args",
     process.env.YT_DLP_EXTRACTOR_ARGS ||
-      "youtube:player_client=mweb,tv,android,ios",
+      "youtube:player_client=web,mweb,tv",
   ];
 
   // Optional second extractor-args for the PO Token HTTP provider.
@@ -239,14 +239,14 @@ export function publicError(e: unknown) {
     return "Cette vidéo nécessite une authentification ou présente une restriction d’accès.";
   if (/country|geo/i.test(s))
     return "Cette vidéo n’est pas disponible dans la région du serveur.";
-  if (/removed|unavailable|not available|The page needs to be reloaded/i.test(s))
+  if (/removed|unavailable|not available/i.test(s) && !/page needs to be reloaded/i.test(s))
     return "Cette vidéo a été supprimée ou n’est plus disponible.";
   if (/TIMEOUT|PROCESS_TIMEOUT/i.test(s))
     return "Le traitement a pris trop de temps. Veuillez réessayer.";
-  if (/HTTP Error 403|403: Forbidden| SabR|sabr/i.test(s))
+  if (/HTTP Error 403|403: Forbidden|sabr/i.test(s))
     return "YouTube a refusé l’accès (403). Ajoutez YT_DLP_COOKIES_BASE64 sur Railway puis redéployez.";
-  if (/n challenge|JS challenge|EJS|Challenge solving failed/i.test(s))
-    return "Échec du défi JavaScript YouTube. Vérifiez que Node.js et yt-dlp sont à jour sur le serveur.";
+  if (/n challenge|JS challenge|EJS|Challenge solving failed|page needs to be reloaded/i.test(s))
+    return "Échec du défi JavaScript YouTube. Vérifiez yt-dlp / Node sur le serveur, ou rafraîchissez YT_DLP_COOKIES_BASE64.";
   if (/Failed to extract|Unable to download webpage|Unable to extract/i.test(s))
     return "YouTube a bloqué l’extraction. Définissez YT_DLP_COOKIES_BASE64 sur Railway.";
   // Surface a short yt-dlp hint when nothing matched (helps diagnose Railway)
