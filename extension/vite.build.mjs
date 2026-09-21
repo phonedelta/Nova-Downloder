@@ -16,7 +16,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = __dirname;
 const outDir = resolve(root, "../dist-extension");
 const shared = resolve(root, "../packages/shared/src");
-const env = loadEnv("production", root, "");
+const mode = process.argv.includes("--mode")
+  ? process.argv[process.argv.indexOf("--mode") + 1] || "development"
+  : process.env.VITE_NOVA_ENV === "production"
+    ? "production"
+    : "development";
+const env = loadEnv(mode, root, "");
+console.log(`[extension-build] mode=${mode} api=${env.VITE_NOVA_API_BASE_URL || "http://127.0.0.1:3001"}`);
 
 const alias = {
   "@nova/shared": shared,
