@@ -115,11 +115,29 @@ export const browserApi = {
   },
 
   async downloadsOpen(downloadId: number): Promise<void> {
-    await getApi().downloads.open(downloadId);
+    const api = getApi().downloads;
+    try {
+      await api.open(downloadId);
+    } catch (e) {
+      // Missing "downloads.open" permission or file not on disk yet → show in folder
+      try {
+        api.show(downloadId);
+      } catch {
+        throw e instanceof Error
+          ? e
+          : new Error("Impossible d’ouvrir le fichier téléchargé.");
+      }
+    }
   },
 
   async downloadsShow(downloadId: number): Promise<void> {
-    await getApi().downloads.show(downloadId);
+    try {
+      getApi().downloads.show(downloadId);
+    } catch (e) {
+      throw e instanceof Error
+        ? e
+        : new Error("Impossible d’afficher le fichier dans le dossier.");
+    }
   },
 
   async queryActiveTab(): Promise<chrome.tabs.Tab | undefined> {

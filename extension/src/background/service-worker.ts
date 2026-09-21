@@ -948,14 +948,40 @@ browserApi.runtime.onMessage.addListener(
           }
 
           case "OPEN_DOWNLOAD": {
-            await browserApi.downloadsOpen(message.chromeDownloadId);
+            try {
+              await browserApi.downloadsOpen(message.chromeDownloadId);
+            } catch (e) {
+              console.warn("[DOWNLOAD] open failed, trying show:", e);
+              try {
+                await browserApi.downloadsShow(message.chromeDownloadId);
+              } catch (e2) {
+                sendResponse({
+                  type: "DOWNLOAD_ERROR",
+                  error:
+                    e2 instanceof Error
+                      ? e2.message
+                      : "Impossible d’ouvrir le fichier.",
+                } satisfies ExtensionResponse);
+                return;
+              }
+            }
             sendResponse({ type: "OK" } satisfies ExtensionResponse);
             return;
           }
 
           case "SHOW_DOWNLOAD": {
-            await browserApi.downloadsShow(message.chromeDownloadId);
-            sendResponse({ type: "OK" } satisfies ExtensionResponse);
+            try {
+              await browserApi.downloadsShow(message.chromeDownloadId);
+              sendResponse({ type: "OK" } satisfies ExtensionResponse);
+            } catch (e) {
+              sendResponse({
+                type: "DOWNLOAD_ERROR",
+                error:
+                  e instanceof Error
+                    ? e.message
+                    : "Impossible d’afficher le fichier.",
+              } satisfies ExtensionResponse);
+            }
             return;
           }
 

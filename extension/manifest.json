@@ -26,7 +26,14 @@
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
-  "permissions": ["storage", "downloads", "activeTab", "tabs", "webRequest"],
+  "permissions": [
+    "storage",
+    "downloads",
+    "downloads.open",
+    "activeTab",
+    "tabs",
+    "webRequest"
+  ],
   "host_permissions": [
     "http://*/*",
     "https://*/*"
@@ -57,7 +64,9 @@
         "http://127.0.0.1:5173/*",
         "http://localhost:5173/*",
         "http://127.0.0.1:3001/*",
-        "http://localhost:3001/*"
+        "http://localhost:3001/*",
+        "https://nova-downloader.up.railway.app/*",
+        "https://*.up.railway.app/*"
       ],
       "js": ["site-bridge.js"],
       "run_at": "document_start"
