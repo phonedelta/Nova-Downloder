@@ -54,7 +54,8 @@ export function getPanelAnchor(): {
 } {
   const host = document.getElementById(HOST_ID);
   const rect = host?.getBoundingClientRect();
-  const panelWidth = 360;
+  // Must match .nova-panel width: min(460px, calc(100vw - 24px))
+  const panelWidth = Math.min(460, window.innerWidth - 24);
   const margin = 8;
 
   if (!rect || rect.width === 0) {
@@ -66,14 +67,18 @@ export function getPanelAnchor(): {
   }
 
   const top = Math.round(rect.bottom + 10);
-  // Left half → align panel left with button; right half → align panel right with button
   const buttonOnLeft = rect.left + rect.width / 2 < window.innerWidth / 2;
-  let left = buttonOnLeft ? rect.left : rect.right - panelWidth;
-  left = Math.max(
-    margin,
-    Math.min(left, window.innerWidth - panelWidth - margin),
-  );
-  const right = Math.round(window.innerWidth - left - panelWidth);
+
+  let right: number;
+  if (buttonOnLeft) {
+    // Keep panel fully visible under a left-side button (was clipped with wrong width)
+    const left = Math.max(margin, Math.min(rect.left, window.innerWidth - panelWidth - margin));
+    right = Math.round(window.innerWidth - left - panelWidth);
+  } else {
+    // Right side: unchanged — align panel's right edge with the button
+    right = Math.max(margin, Math.round(window.innerWidth - rect.right));
+  }
+
   const maxHeight = Math.max(240, Math.floor(window.innerHeight - top - 16));
   return { top, right, maxHeight };
 }
