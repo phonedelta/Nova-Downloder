@@ -133,7 +133,7 @@ export function DownloadPanel({
   }, []);
 
   // Render outside the YouTube player so overflow:hidden cannot clip the popup.
-  // Re-anchor when the button is dragged so the panel stays on the opposite side.
+  // Re-anchor when the button is dragged so the panel stays under it.
   useEffect(() => {
     const mount = ensurePanelLayer();
     setPortalEl(mount);

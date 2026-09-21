@@ -46,7 +46,7 @@ export function removePanelLayer(): void {
   document.getElementById(PANEL_LAYER_ID)?.remove();
 }
 
-/** Place panel on the opposite side of the Nova button (avoids covering it). */
+/** Anchor the panel directly under the Nova button (clamped to the viewport). */
 export function getPanelAnchor(): {
   top: number;
   right: number;
@@ -55,28 +55,25 @@ export function getPanelAnchor(): {
   const host = document.getElementById(HOST_ID);
   const rect = host?.getBoundingClientRect();
   const panelWidth = 360;
-  const margin = 16;
+  const margin = 8;
 
   if (!rect || rect.width === 0) {
     return {
       top: 72,
-      right: margin,
+      right: 16,
       maxHeight: Math.max(240, window.innerHeight - 88),
     };
   }
 
-  const top = Math.round(Math.min(
-    rect.bottom + 10,
-    Math.max(margin, window.innerHeight - 240),
-  ));
-  const buttonCenterX = rect.left + rect.width / 2;
-  const buttonOnLeft = buttonCenterX < window.innerWidth / 2;
-
-  // Button left → panel right; button right → panel left
-  const right = buttonOnLeft
-    ? margin
-    : Math.max(margin, Math.round(window.innerWidth - panelWidth - margin));
-
-  const maxHeight = Math.max(240, Math.floor(window.innerHeight - top - margin));
+  const top = Math.round(rect.bottom + 10);
+  // Left half → align panel left with button; right half → align panel right with button
+  const buttonOnLeft = rect.left + rect.width / 2 < window.innerWidth / 2;
+  let left = buttonOnLeft ? rect.left : rect.right - panelWidth;
+  left = Math.max(
+    margin,
+    Math.min(left, window.innerWidth - panelWidth - margin),
+  );
+  const right = Math.round(window.innerWidth - left - panelWidth);
+  const maxHeight = Math.max(240, Math.floor(window.innerHeight - top - 16));
   return { top, right, maxHeight };
 }
