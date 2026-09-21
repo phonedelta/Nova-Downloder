@@ -4,6 +4,7 @@ import { findYouTubePlayerContainer } from "../utils/youtubeSelectors";
 export const HOST_ID = "novadownloader-host";
 export const BUTTON_ATTR = "data-novadownloader-button";
 export const OVERLAY_ID = "novadownloader-player-overlay";
+export const FIXED_LAYER_ID = "novadownloader-fixed-layer";
 
 const HOST_STYLE_ID = "novadownloader-host-style";
 
@@ -14,49 +15,33 @@ function ensureHostStyles() {
     style.id = HOST_STYLE_ID;
     document.documentElement.appendChild(style);
   }
-  // Always refresh so updates apply after extension reload
   style.textContent = `
-#${OVERLAY_ID} {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2147483000;
-  overflow: visible;
+#${FIXED_LAYER_ID} {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  pointer-events: none !important;
+  z-index: 2147483645 !important;
+  overflow: visible !important;
 }
 #${HOST_ID} {
-  position: absolute;
-  /* Top-left — avoids YouTube’s cards / info (i) button on the top-right */
-  top: 16px;
-  left: 16px;
-  right: auto;
-  pointer-events: none;
-  z-index: 2147483001;
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-  overflow: visible;
-}
-#${HOST_ID}[data-shorts="true"] {
-  top: 12px;
-  left: 12px;
-  right: auto;
-}
-#${HOST_ID}[data-dragged="true"] {
-  right: auto;
-}
-/* YouTube info / cards buttons must not steal clicks over Nova */
-.ytp-cards-button,
-.ytp-cards-teaser,
-.ytp-overflow-button,
-button.ytp-button[aria-label*="Info" i],
-button.ytp-button[aria-label*="info" i],
-button.ytp-button[data-tooltip-target-id*="cards"],
-.ytp-chrome-top-buttons .ytp-button[aria-label*="Card" i] {
+  position: fixed !important;
   pointer-events: none !important;
+  z-index: 2147483646 !important;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  overflow: visible !important;
 }
-@media (max-width: 640px) {
-  #${HOST_ID} {
-    top: 10px;
-    left: 10px;
-  }
+/* Kill click-stealing on YouTube info / cards (i) */
+.ytp-cards-button,
+.ytp-cards-button *,
+.ytp-cards-teaser,
+.ytp-cards-teaser *,
+.ytp-overflow-button,
+.ytp-chrome-top .ytp-button[data-tooltip-target-id*="cards"],
+.ytp-chrome-top-buttons .ytp-cards-button {
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 `;
 }
@@ -68,26 +53,36 @@ export function findExistingHost(): HTMLElement | null {
 export function removeHost(): void {
   findExistingHost()?.remove();
   document.getElementById(OVERLAY_ID)?.remove();
+  document.getElementById(FIXED_LAYER_ID)?.remove();
 }
 
-function ensureOverlay(player: HTMLElement): HTMLElement {
-  let overlay = document.getElementById(OVERLAY_ID) as HTMLElement | null;
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = OVERLAY_ID;
-    overlay.setAttribute("data-novadownloader-overlay", "true");
+function ensureFixedLayer(): HTMLElement {
+  let layer = document.getElementById(FIXED_LAYER_ID);
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.id = FIXED_LAYER_ID;
+    layer.setAttribute("data-novadownloader-fixed-layer", "true");
+    document.documentElement.appendChild(layer);
+  } else if (layer.parentElement !== document.documentElement) {
+    document.documentElement.appendChild(layer);
   }
-  const style = getComputedStyle(player);
-  if (style.position === "static") {
-    // Non-destructive: only set if static so absolute children work
-    player.style.position = "relative";
+  return layer;
+}
+
+/** Place host at top-left of the player (viewport coords). */
+export function placeHostDefault(host: HTMLElement): void {
+  if (host.dataset.dragged === "true") return;
+  const player = findYouTubePlayerContainer();
+  const r = player?.getBoundingClientRect();
+  const pad = 16;
+  if (r && r.width > 40 && r.height > 40) {
+    host.style.left = `${Math.round(r.left + pad)}px`;
+    host.style.top = `${Math.round(r.top + pad)}px`;
+  } else {
+    host.style.left = `${pad}px`;
+    host.style.top = `${pad}px`;
   }
-  if (overlay.parentElement !== player) {
-    player.appendChild(overlay);
-  }
-  // Keep Nova above late-injected YouTube chrome
-  player.appendChild(overlay);
-  return overlay;
+  host.style.right = "auto";
 }
 
 export function ensureHost(): { host: HTMLElement; isShorts: boolean } | null {
@@ -105,20 +100,39 @@ export function ensureHost(): { host: HTMLElement; isShorts: boolean } | null {
     return existing ? { host: existing, isShorts: shorts } : null;
   }
 
-  const overlay = ensureOverlay(player);
-  const existing = findExistingHost();
-  if (existing) {
-    if (existing.parentElement !== overlay) {
-      overlay.appendChild(existing);
-    }
-    existing.dataset.shorts = shorts ? "true" : "false";
-    return { host: existing, isShorts: shorts };
+  // Remove legacy in-player overlay if present
+  document.getElementById(OVERLAY_ID)?.remove();
+
+  const layer = ensureFixedLayer();
+  let host = findExistingHost();
+  if (!host) {
+    host = document.createElement("div");
+    host.id = HOST_ID;
+    host.setAttribute("data-novadownloader-host", "true");
+    layer.appendChild(host);
+  } else if (host.parentElement !== layer) {
+    layer.appendChild(host);
   }
 
-  const host = document.createElement("div");
-  host.id = HOST_ID;
-  host.setAttribute("data-novadownloader-host", "true");
   host.dataset.shorts = shorts ? "true" : "false";
-  overlay.appendChild(host);
+  placeHostDefault(host);
   return { host, isShorts: shorts };
+}
+
+/** Keep the button glued to the player when the page scrolls/resizes. */
+export function startHostPositionSync(): () => void {
+  const tick = () => {
+    const host = findExistingHost();
+    if (!host || host.dataset.dragged === "true") return;
+    placeHostDefault(host);
+  };
+  tick();
+  window.addEventListener("scroll", tick, true);
+  window.addEventListener("resize", tick);
+  const id = window.setInterval(tick, 500);
+  return () => {
+    window.removeEventListener("scroll", tick, true);
+    window.removeEventListener("resize", tick);
+    window.clearInterval(id);
+  };
 }

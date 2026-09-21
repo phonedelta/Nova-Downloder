@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { NovaButton } from "../components/NovaButton";
 import { DownloadPanel } from "../components/DownloadPanel";
-import { ensureHost, removeHost, HOST_ID } from "./injectButton";
+import { ensureHost, removeHost, HOST_ID, startHostPositionSync } from "./injectButton";
 import {
   startYouTubeObserver,
   isShortsPage,
@@ -18,6 +18,8 @@ import { browserApi } from "../utils/browserApi";
 import type { ExtensionSettings } from "../types/api";
 import { DEFAULT_SETTINGS } from "../types/api";
 import cssText from "../styles/extension.css?inline";
+import { applyButtonPos, loadButtonPos } from "./buttonPosition";
+import { useDraggableNovaButton } from "./useDraggableNovaButton";
 
 type MountState = {
   root: Root;
@@ -186,6 +188,22 @@ function App({
     setHostVisible(false);
   }, []);
 
+  const toggleOpen = useCallback(() => setOpen((v) => !v), []);
+  const dragHandlers = useDraggableNovaButton(toggleOpen);
+
+  // Restore saved button position (away from YouTube’s overlapping “i”)
+  useEffect(() => {
+    let cancelled = false;
+    void loadButtonPos().then((pos) => {
+      if (cancelled || !pos) return;
+      const host = document.getElementById(HOST_ID);
+      if (host) applyButtonPos(host, pos);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId]);
+
   if (!showButton && !open) {
     return null;
   }
@@ -204,8 +222,13 @@ function App({
           labelFull={t("NovaDownloader", locale)}
           labelShort={t("Nova", locale)}
           activeCount={activeDownloads}
-          onClick={() => setOpen((v) => !v)}
+          onClick={toggleOpen}
           onDismiss={dismissButton}
+          dragHandlers={dragHandlers}
+          dragTitle={t(
+            "Glisser pour déplacer · double-clic pour réinitialiser",
+            locale,
+          )}
         />
       ) : null}
       {open ? (
@@ -241,6 +264,9 @@ async function renderIntoHost(host: HTMLElement, videoId: string, isShorts: bool
   const settings = await loadSettings();
   if (getCurrentPageVideoId() !== videoId) return;
 
+  const savedPos = await loadButtonPos();
+  if (savedPos) applyButtonPos(host, savedPos);
+
   if (!mount || mount.host !== host) {
     mount?.root.unmount();
     const shadow = host.shadowRoot || host.attachShadow({ mode: "open" });
@@ -272,6 +298,9 @@ async function syncUi(videoId: string | null) {
 }
 
 export function bootstrapYouTubeExtension() {
+  const stopSync = startHostPositionSync();
+  window.addEventListener("pagehide", () => stopSync(), { once: true });
+
   startYouTubeObserver((videoId) => {
     void syncUi(videoId);
   });
