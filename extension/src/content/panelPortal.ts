@@ -62,7 +62,16 @@ export function getPanelAnchor(): {
     };
   }
   const top = Math.round(rect.bottom + 10);
-  const right = Math.max(8, Math.round(window.innerWidth - rect.right));
+  // Prefer aligning the panel under the button (left or right side of screen)
+  const spaceRight = window.innerWidth - rect.right;
+  const panelWidth = 360;
+  let right: number;
+  if (spaceRight >= panelWidth + 8) {
+    right = Math.max(8, Math.round(spaceRight));
+  } else {
+    // Button is on the left — keep panel near the left edge
+    right = Math.max(8, Math.round(window.innerWidth - rect.left - panelWidth));
+  }
   const maxHeight = Math.max(240, Math.floor(window.innerHeight - top - 16));
   return { top, right, maxHeight };
 }
