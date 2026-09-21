@@ -1,4 +1,5 @@
 import { Download, X } from "lucide-react";
+import type { PointerEventHandler } from "react";
 
 type Props = {
   compact?: boolean;
@@ -8,6 +9,13 @@ type Props = {
   activeCount?: number;
   onClick: () => void;
   onDismiss?: () => void;
+  dragHandlers?: {
+    onPointerDown: PointerEventHandler;
+    onPointerMove: PointerEventHandler;
+    onPointerUp: PointerEventHandler;
+    onPointerCancel: PointerEventHandler;
+  };
+  dragTitle?: string;
 };
 
 export function NovaButton({
@@ -18,11 +26,13 @@ export function NovaButton({
   activeCount = 0,
   onClick,
   onDismiss,
+  dragHandlers,
+  dragTitle,
 }: Props) {
   const badge =
     activeCount > 0 ? (activeCount > 9 ? "9+" : String(activeCount)) : "";
   return (
-    <div className="nova-btn-wrap">
+    <div className="nova-btn-wrap" title={dragTitle} {...(dragHandlers || {})}>
       <button
         type="button"
         className={`nova-btn${compact ? " nova-btn--compact" : ""}`}
@@ -33,6 +43,12 @@ export function NovaButton({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={(e) => {
+          // Drag handlers open the panel on pointerup to distinguish drag vs click
+          if (dragHandlers) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
           e.preventDefault();
           e.stopPropagation();
           onClick();

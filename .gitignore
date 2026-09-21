@@ -11,3 +11,4 @@ extension/.env
 *.pem
 *.crx
 .DS_Store
+env railway

@@ -5,6 +5,11 @@ type Dict = Record<string, [string, string, string]>;
 const messages: Dict = {
   NovaDownloader: ["NovaDownloader", "NovaDownloader", "NovaDownloader"],
   Nova: ["Nova", "Nova", "Nova"],
+  "Glisser pour déplacer · double-clic pour réinitialiser": [
+    "Drag to move · double-click to reset",
+    "اسحب للنقل · نقر مزدوج لإعادة التعيين",
+    "Sürükleyerek taşı · sıfırlamak için çift tıkla",
+  ],
   "Télécharger cette vidéo": [
     "Download this video",
     "تنزيل هذا الفيديو",
