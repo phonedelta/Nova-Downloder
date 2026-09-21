@@ -13,7 +13,7 @@ TMP="$(mktemp)"
 FILTERED="$(mktemp)"
 trap 'rm -f "$TMP" "$FILTERED"' EXIT
 
-echo "# Exporting cookies from $BROWSER…" >&2
+echo "# Exporting cookies from ${BROWSER}..." >&2
 # Close Brave/Chrome lock issues: still write cookies even if extract fails.
 "$YTDLP" \
   --cookies-from-browser "$BROWSER" \

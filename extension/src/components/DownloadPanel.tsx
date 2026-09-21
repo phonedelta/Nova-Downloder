@@ -133,6 +133,7 @@ export function DownloadPanel({
   }, []);
 
   // Render outside the YouTube player so overflow:hidden cannot clip the popup.
+  // Re-anchor when the button is dragged so the panel stays on the opposite side.
   useEffect(() => {
     const mount = ensurePanelLayer();
     setPortalEl(mount);
@@ -144,12 +145,25 @@ export function DownloadPanel({
       typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(sync)
         : null;
+    const mo =
+      typeof MutationObserver !== "undefined"
+        ? new MutationObserver(sync)
+        : null;
     const host = document.getElementById("novadownloader-host");
     if (host && ro) ro.observe(host);
+    if (host && mo) {
+      mo.observe(host, {
+        attributes: true,
+        attributeFilter: ["style", "class", "data-dragged"],
+      });
+    }
+    const tick = window.setInterval(sync, 500);
     return () => {
       window.removeEventListener("resize", sync);
       window.removeEventListener("scroll", sync, true);
+      window.clearInterval(tick);
       ro?.disconnect();
+      mo?.disconnect();
       removePanelLayer();
     };
   }, []);
